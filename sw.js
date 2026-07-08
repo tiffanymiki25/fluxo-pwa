@@ -1,4 +1,4 @@
-const CACHE_NAME = "fluxo-v4";
+const CACHE_NAME = "fluxo-v5";
 const ASSETS = [
   "./",
   "./index.html",
@@ -32,8 +32,18 @@ self.addEventListener("activate", (event) => {
 
 self.addEventListener("fetch", (event) => {
   if (event.request.method !== "GET") return;
+
+  // Rede primeiro: sempre busca a versão mais nova quando há conexão,
+  // e só usa o cache como reserva se estiver offline. Evita servir
+  // JS/CSS desatualizado depois de uma atualização do app.
   event.respondWith(
-    caches.match(event.request).then((cached) => cached || fetch(event.request))
+    fetch(event.request)
+      .then((response) => {
+        const clone = response.clone();
+        caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
+        return response;
+      })
+      .catch(() => caches.match(event.request))
   );
 });
 
