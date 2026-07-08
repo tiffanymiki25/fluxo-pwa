@@ -3,16 +3,15 @@
 // + publicação + métricas manuais
 // ============================================================
 
-const PROJETOS_PADRAO = ["Ano Letivo Prático", "Año Lectivo Práctico", "Octa44 Hub", "Koemtur Turismo"];
 const PLATAFORMAS = ["Instagram", "TikTok", "Facebook", "WhatsApp", "Blog", "Outro"];
 
 const postagens = (() => {
   let lista = [];
-  let projetoSelecionadoForm = null;
   let filtroProjeto = "todos";
 
   const elP = {
     text: document.getElementById("postText"),
+    projectInput: document.getElementById("postProjectInput"),
     projectRow: document.getElementById("postProjectRow"),
     submit: document.getElementById("postSubmit"),
     filterRow: document.getElementById("postFilterRow"),
@@ -21,15 +20,20 @@ const postagens = (() => {
   };
 
   function projetosConhecidos() {
-    const usados = lista.map((p) => p.projeto);
-    return [...new Set([...PROJETOS_PADRAO, ...usados])];
+    return [...new Set(lista.map((p) => p.projeto))].sort((a, b) => a.localeCompare(b, "pt-BR"));
   }
 
   function renderFormProjectRow() {
     const projetos = projetosConhecidos();
+
+    if (projetos.length === 0) {
+      elP.projectRow.innerHTML = "";
+      return;
+    }
+
     elP.projectRow.innerHTML = projetos.map((p) => {
       const cor = corCategoria(p);
-      const ativo = projetoSelecionadoForm === p;
+      const ativo = elP.projectInput.value.trim() === p;
       const style = ativo
         ? `background:${cor.bg};border-color:${cor.border};color:${cor.text};`
         : "";
@@ -38,7 +42,7 @@ const postagens = (() => {
 
     elP.projectRow.querySelectorAll("[data-proj]").forEach((btn) => {
       btn.addEventListener("click", () => {
-        projetoSelecionadoForm = btn.dataset.proj;
+        elP.projectInput.value = btn.dataset.proj;
         renderFormProjectRow();
         atualizarBotaoSubmit();
       });
@@ -47,20 +51,26 @@ const postagens = (() => {
 
   function atualizarBotaoSubmit() {
     const temTexto = elP.text.value.trim().length > 0;
-    elP.submit.disabled = !(temTexto && projetoSelecionadoForm);
+    const temProjeto = elP.projectInput.value.trim().length > 0;
+    elP.submit.disabled = !(temTexto && temProjeto);
   }
 
   elP.text.addEventListener("input", atualizarBotaoSubmit);
+  elP.projectInput.addEventListener("input", () => {
+    renderFormProjectRow();
+    atualizarBotaoSubmit();
+  });
 
   elP.submit.addEventListener("click", async () => {
     const texto = elP.text.value.trim();
-    if (!texto || !projetoSelecionadoForm) return;
+    const projeto = elP.projectInput.value.trim();
+    if (!texto || !projeto) return;
 
     elP.submit.disabled = true;
     try {
-      await db.createPostagem(texto, projetoSelecionadoForm);
+      await db.createPostagem(texto, projeto);
       elP.text.value = "";
-      projetoSelecionadoForm = null;
+      elP.projectInput.value = "";
       await refresh();
     } catch (err) {
       console.error("Erro ao criar postagem:", err);

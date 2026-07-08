@@ -45,6 +45,7 @@ const el = {
   navShared: document.getElementById("navShared"),
   navPosts: document.getElementById("navPosts"),
   postsView: document.getElementById("postsView"),
+  captureSection: document.querySelector(".capture"),
   logoutBtn: document.getElementById("logoutBtn"),
 };
 
@@ -63,6 +64,7 @@ function showView(view) {
   el.listView.classList.toggle("active", view === "list");
   el.sharedView.classList.toggle("active", view === "shared");
   el.postsView.classList.toggle("active", view === "posts");
+  el.captureSection.style.display = view === "posts" ? "none" : "block";
 
   el.navNext.classList.toggle("active", view === "next");
   el.navList.classList.toggle("active", view === "list");
