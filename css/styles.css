@@ -1,17 +1,33 @@
 :root {
   --purple: #6B3FF6;
   --purple-dark: #4320C2;
+  --purple-soft: #EEE9FE;
   --ink: #111111;
   --paper: #F5F5F5;
 
-  --bg: #111111;
-  --surface: #1B1B1F;
-  --surface-raised: #232329;
-  --text: #F5F5F5;
-  --text-dim: #A8A8B3;
-  --border: #2E2E36;
+  --bg: #F8F8F8;
+  --surface: #FFFFFF;
+  --surface-alt: #F1F5F9;
+  --text: #1E293B;
+  --text-dim: #64748B;
+  --border: #E2E8F0;
 
-  --radius: 18px;
+  --success: #16A34A;
+  --success-bg: #F0FDF4;
+  --success-border: #BBF7D0;
+
+  --info: #2563EB;
+  --info-bg: #EFF6FF;
+  --info-border: #BFDBFE;
+
+  --danger: #DC2626;
+  --danger-bg: #FEF2F2;
+  --danger-border: #FECACA;
+
+  --neutral-bg: #F1F5F9;
+  --neutral-border: #E2E8F0;
+
+  --radius: 16px;
   --radius-sm: 12px;
   --space-1: 8px;
   --space-2: 16px;
@@ -60,6 +76,7 @@ html, body {
   font-weight: 700;
   font-size: 18px;
   letter-spacing: -0.01em;
+  color: var(--text);
 }
 
 .brand-dot {
@@ -67,7 +84,7 @@ html, body {
   height: 10px;
   border-radius: 50%;
   background: var(--purple);
-  box-shadow: 0 0 0 4px rgba(107, 63, 246, 0.18);
+  box-shadow: 0 0 0 4px var(--purple-soft);
 }
 
 .view-toggle {
@@ -91,13 +108,13 @@ html, body {
 
 .icon-btn:hover, .icon-btn:focus-visible {
   border-color: var(--purple);
-  color: var(--text);
+  color: var(--purple);
 }
 
 .icon-btn.active {
   border-color: var(--purple);
   color: var(--purple);
-  background: rgba(107, 63, 246, 0.12);
+  background: var(--purple-soft);
 }
 
 /* ---------- Captura ---------- */
@@ -114,11 +131,13 @@ html, body {
   display: flex;
   gap: var(--space-1);
   align-items: flex-end;
-  transition: border-color 0.15s ease;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
 }
 
 .capture-box:focus-within {
   border-color: var(--purple);
+  box-shadow: 0 0 0 3px var(--purple-soft);
 }
 
 .capture-box textarea {
@@ -146,7 +165,7 @@ html, body {
   border-radius: 12px;
   border: none;
   background: var(--purple);
-  color: var(--paper);
+  color: #FFFFFF;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -205,6 +224,7 @@ main {
   padding: var(--space-4) var(--space-3);
   position: relative;
   overflow: hidden;
+  box-shadow: 0 4px 16px rgba(15, 23, 42, 0.06);
 }
 
 .next-card::before {
@@ -228,6 +248,11 @@ main {
   margin-top: var(--space-2);
   font-size: 13px;
   color: var(--text-dim);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  flex-wrap: wrap;
 }
 
 .next-actions {
@@ -242,7 +267,7 @@ main {
   padding: 16px;
   border-radius: var(--radius-sm);
   border: 1px solid var(--border);
-  background: var(--surface-raised);
+  background: var(--surface-alt);
   color: var(--text);
   font-size: 15px;
   font-weight: 600;
@@ -258,7 +283,7 @@ main {
 .btn-done {
   background: var(--purple) !important;
   border-color: var(--purple) !important;
-  color: var(--paper) !important;
+  color: #FFFFFF !important;
 }
 
 .empty-state {
@@ -288,6 +313,7 @@ main {
   letter-spacing: 0.08em;
   color: var(--text-dim);
   margin: var(--space-3) 0 var(--space-1);
+  font-weight: 700;
 }
 
 .item-card {
@@ -299,6 +325,7 @@ main {
   display: flex;
   align-items: flex-start;
   gap: var(--space-2);
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.03);
 }
 
 .item-check {
@@ -336,17 +363,32 @@ main {
   font-size: 12px;
   color: var(--text-dim);
   display: flex;
-  gap: var(--space-1);
+  gap: 6px;
   flex-wrap: wrap;
+  align-items: center;
 }
+
+/* ---------- Pills (badges coloridos, no estilo Eventos Haru) ---------- */
 
 .tag {
   display: inline-block;
-  padding: 2px 8px;
+  padding: 3px 10px;
   border-radius: 999px;
   font-size: 11px;
-  border: 1px solid var(--border);
+  font-weight: 600;
+  background: var(--neutral-bg);
   color: var(--text-dim);
+  border: 1px solid var(--neutral-border);
+}
+
+.pill {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  border: 1px solid transparent;
+  white-space: nowrap;
 }
 
 /* ---------- Rodapé fixo ---------- */
@@ -397,6 +439,7 @@ main {
   align-items: center;
   justify-content: center;
   padding: var(--space-3);
+  background: var(--bg);
 }
 
 .auth-box {
@@ -410,6 +453,7 @@ main {
   border-radius: var(--radius-sm);
   overflow: hidden;
   margin-bottom: var(--space-3);
+  background: var(--surface);
 }
 
 .auth-tab {
@@ -426,7 +470,7 @@ main {
 
 .auth-tab.active {
   background: var(--purple);
-  color: var(--paper);
+  color: #FFFFFF;
 }
 
 .field {
@@ -454,6 +498,7 @@ main {
 
 .field input:focus {
   border-color: var(--purple);
+  box-shadow: 0 0 0 3px var(--purple-soft);
 }
 
 .auth-submit {
@@ -462,7 +507,7 @@ main {
   border-radius: var(--radius-sm);
   border: none;
   background: var(--purple);
-  color: var(--paper);
+  color: #FFFFFF;
   font-size: 15px;
   font-weight: 700;
   font-family: var(--font-body);
@@ -477,7 +522,7 @@ main {
 .auth-error {
   margin-top: var(--space-2);
   font-size: 13px;
-  color: #FF6B6B;
+  color: var(--danger);
   min-height: 1em;
 }
 
@@ -494,7 +539,7 @@ main {
   padding: 5px 12px;
   border-radius: 999px;
   border: 1px solid var(--border);
-  background: transparent;
+  background: var(--surface);
   color: var(--text-dim);
   font-size: 12px;
   font-family: var(--font-body);
@@ -502,7 +547,7 @@ main {
 }
 
 .chip-active {
-  background: rgba(107, 63, 246, 0.16);
+  background: var(--purple-soft);
   border-color: var(--purple);
   color: var(--purple);
 }
@@ -514,44 +559,50 @@ main {
 }
 
 .category-heading {
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 700;
-  color: var(--purple);
-  margin: var(--space-2) 0 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-dim);
+  margin: var(--space-2) 0 8px;
   padding-left: 2px;
 }
 
-/* ---------- Importância ---------- */
+/* ---------- Importância e categoria (pills) ---------- */
 
-.importancia-row {
+.tags-row {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   margin-top: 10px;
+  flex-wrap: wrap;
 }
 
-.imp-dot {
-  width: 20px;
-  height: 20px;
-  border-radius: 50%;
-  border: 2px solid var(--border);
-  background: transparent;
+.imp-pill {
+  padding: 4px 11px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text-dim);
+  font-size: 11px;
+  font-weight: 700;
   cursor: pointer;
-  padding: 0;
+  font-family: var(--font-body);
 }
 
-.imp-dot.imp-baixa.imp-active { background: #6B7280; border-color: #6B7280; }
-.imp-dot.imp-normal.imp-active { background: var(--purple); border-color: var(--purple); }
-.imp-dot.imp-alta.imp-active { background: #FF6B6B; border-color: #FF6B6B; }
+.imp-pill.imp-baixa.imp-active { background: var(--neutral-bg); border-color: var(--neutral-border); color: var(--text-dim); }
+.imp-pill.imp-normal.imp-active { background: var(--info-bg); border-color: var(--info-border); color: var(--info); }
+.imp-pill.imp-alta.imp-active { background: var(--danger-bg); border-color: var(--danger-border); color: var(--danger); }
 
 .category-edit-btn {
   margin-left: auto;
-  padding: 4px 10px;
+  padding: 4px 11px;
   border-radius: 999px;
   border: 1px dashed var(--border);
   background: transparent;
   color: var(--text-dim);
-  font-size: 12px;
+  font-size: 11px;
+  font-weight: 700;
   font-family: var(--font-body);
   cursor: pointer;
 }
@@ -560,13 +611,14 @@ main {
   position: relative;
   margin-top: 8px;
   padding: var(--space-1);
-  background: var(--surface-raised);
+  background: var(--surface-alt);
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
   z-index: 5;
+  width: 100%;
 }
 
 .category-new-row {
@@ -598,7 +650,7 @@ main {
   border-radius: var(--radius-sm);
   border: none;
   background: var(--purple);
-  color: var(--paper);
+  color: #FFFFFF;
   font-size: 13px;
   font-weight: 600;
   cursor: pointer;

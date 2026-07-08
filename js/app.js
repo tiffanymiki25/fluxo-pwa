@@ -6,6 +6,24 @@ const IMPORTANCIA_PESO = { alta: 2, normal: 1, baixa: 0 };
 const IMPORTANCIA_LABEL = { alta: "Alta", normal: "Normal", baixa: "Baixa" };
 const SEM_CATEGORIA = "Sem categoria";
 
+// Paleta rotativa pro estilo "pill colorida" do Eventos Haru — cada
+// categoria recebe uma cor consistente, calculada a partir do nome.
+const CORES_CATEGORIA = [
+  { bg: "#EFF6FF", border: "#BFDBFE", text: "#2563EB" }, // azul
+  { bg: "#F0FDF4", border: "#BBF7D0", text: "#16A34A" }, // verde
+  { bg: "#FDF4FF", border: "#F0ABFC", text: "#A21CAF" }, // magenta
+  { bg: "#FFF7ED", border: "#FED7AA", text: "#C2410C" }, // laranja
+  { bg: "#EEE9FE", border: "#DDD6FE", text: "#6B3FF6" }, // roxo (marca)
+  { bg: "#FEF2F2", border: "#FECACA", text: "#DC2626" }, // vermelho
+  { bg: "#ECFEFF", border: "#A5F3FC", text: "#0E7490" }, // ciano
+];
+
+function corCategoria(nome) {
+  let hash = 0;
+  for (let i = 0; i < nome.length; i++) hash = (hash * 31 + nome.charCodeAt(i)) >>> 0;
+  return CORES_CATEGORIA[hash % CORES_CATEGORIA.length];
+}
+
 let pendingItems = [];
 let doneItems = [];
 let sharedItems = [];
@@ -124,9 +142,12 @@ function renderNext() {
   }
 
   const tags = [];
-  if (item.categoria) tags.push(`<span class="tag">${escapeHtml(item.categoria)}</span>`);
-  if (item.importancia && item.importancia !== "normal") {
-    tags.push(`<span class="tag">${IMPORTANCIA_LABEL[item.importancia]}</span>`);
+  if (item.categoria) {
+    const cor = corCategoria(item.categoria);
+    tags.push(`<span class="pill" style="background:${cor.bg};border-color:${cor.border};color:${cor.text};">${escapeHtml(item.categoria)}</span>`);
+  }
+  if (item.importancia === "alta") {
+    tags.push(`<span class="pill" style="background:#FEF2F2;border-color:#FECACA;color:#DC2626;">Alta</span>`);
   }
 
   el.nextContent.innerHTML = `
@@ -176,12 +197,16 @@ function renderList() {
 
   el.pendingList.innerHTML =
     `<div class="list-section-title">Pendentes (${pendingItems.length})</div>` +
-    grupos.map((grupo) => `
+    grupos.map((grupo) => {
+      const cor = grupo.categoria !== SEM_CATEGORIA ? corCategoria(grupo.categoria) : null;
+      const headingStyle = cor ? `color:${cor.text};` : "";
+      return `
       <div class="category-group">
-        <div class="category-heading">${escapeHtml(grupo.categoria)}</div>
+        <div class="category-heading" style="${headingStyle}">${escapeHtml(grupo.categoria)}</div>
         ${grupo.items.map((item) => renderItemCard(item, { withShare: true, withMeta: true })).join("")}
       </div>
-    `).join("");
+    `;
+    }).join("");
 
   el.doneList.innerHTML = doneItems.length
     ? `<div class="list-section-title">Concluídos</div>` +
@@ -236,18 +261,19 @@ function renderItemCard(item, opts) {
   if (item.notas_ia) tags.push(`<span class="tag">${escapeHtml(item.notas_ia)}</span>`);
 
   const importanciaAtual = item.importancia || "normal";
+  const corCat = item.categoria ? corCategoria(item.categoria) : null;
+  const categoriaStyle = corCat ? `background:${corCat.bg};border-color:${corCat.border};color:${corCat.text};` : "";
+
   const importanciaRow = withMeta ? `
-    <div class="importancia-row">
+    <div class="tags-row">
       ${["baixa", "normal", "alta"].map((nivel) => `
         <button
-          class="imp-dot imp-${nivel} ${importanciaAtual === nivel ? "imp-active" : ""}"
+          class="imp-pill imp-${nivel} ${importanciaAtual === nivel ? "imp-active" : ""}"
           data-importancia="${item.id}"
           data-nivel="${nivel}"
-          title="Importância: ${IMPORTANCIA_LABEL[nivel]}"
-          aria-label="Marcar importância ${IMPORTANCIA_LABEL[nivel]}"
-        ></button>
+        >${IMPORTANCIA_LABEL[nivel]}</button>
       `).join("")}
-      <button class="category-edit-btn" data-category-edit="${item.id}">
+      <button class="category-edit-btn" data-category-edit="${item.id}" style="${categoriaStyle}">
         ${item.categoria ? escapeHtml(item.categoria) : "+ categoria"}
       </button>
     </div>
@@ -296,7 +322,10 @@ function abrirSeletorCategoria(itemId, anchorEl) {
   const popover = document.createElement("div");
   popover.className = "category-popover";
   popover.innerHTML = `
-    ${conhecidas.map((c) => `<button class="chip category-option" data-set-category="${escapeHtml(c)}">${escapeHtml(c)}</button>`).join("")}
+    ${conhecidas.map((c) => {
+      const cor = corCategoria(c);
+      return `<button class="chip category-option" data-set-category="${escapeHtml(c)}" style="background:${cor.bg};border-color:${cor.border};color:${cor.text};">${escapeHtml(c)}</button>`;
+    }).join("")}
     <div class="category-new-row">
       <input type="text" class="category-new-input" placeholder="nova categoria" value="${item.categoria ? escapeHtml(item.categoria) : ""}">
       <button class="category-save-btn">OK</button>
