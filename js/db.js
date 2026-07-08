@@ -7,7 +7,16 @@ const db = (() => {
   let currentUserId = null;
 
   function initClient() {
-    if (!client) client = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    if (!client) {
+      client = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+        auth: {
+          persistSession: true,
+          autoRefreshToken: true,
+          detectSessionInUrl: true,
+          storage: window.localStorage,
+        },
+      });
+    }
     return client;
   }
 
