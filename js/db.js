@@ -145,6 +145,22 @@ const db = (() => {
     if (error) throw error;
   }
 
+  async function updateCategoria(itemId, categoria) {
+    const { error } = await client
+      .from("items")
+      .update({ categoria })
+      .eq("id", itemId);
+    if (error) throw error;
+  }
+
+  async function updateImportancia(itemId, importancia) {
+    const { error } = await client
+      .from("items")
+      .update({ importancia })
+      .eq("id", itemId);
+    if (error) throw error;
+  }
+
   async function markDone(id) {
     const { error } = await client
       .from("items")
@@ -218,6 +234,8 @@ const db = (() => {
     listDone,
     listSharedWithMe,
     updateSharing,
+    updateCategoria,
+    updateImportancia,
     markDone,
     markUndone,
     postpone,

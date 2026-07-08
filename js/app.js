@@ -2,6 +2,10 @@
 // App principal
 // ============================================================
 
+const IMPORTANCIA_PESO = { alta: 2, normal: 1, baixa: 0 };
+const IMPORTANCIA_LABEL = { alta: "Alta", normal: "Normal", baixa: "Baixa" };
+const SEM_CATEGORIA = "Sem categoria";
+
 let pendingItems = [];
 let doneItems = [];
 let sharedItems = [];
@@ -119,11 +123,17 @@ function renderNext() {
     return;
   }
 
+  const tags = [];
+  if (item.categoria) tags.push(`<span class="tag">${escapeHtml(item.categoria)}</span>`);
+  if (item.importancia && item.importancia !== "normal") {
+    tags.push(`<span class="tag">${IMPORTANCIA_LABEL[item.importancia]}</span>`);
+  }
+
   el.nextContent.innerHTML = `
     <div class="next-eyebrow">Próximo</div>
     <div class="next-card">
       <div class="next-card-text">${escapeHtml(item.texto_original)}</div>
-      <div class="next-card-meta">Criado em ${formatDate(item.criado_em)}</div>
+      <div class="next-card-meta">Criado em ${formatDate(item.criado_em)} ${tags.join(" ")}</div>
       <div class="next-actions">
         <button id="btnPostpone">Depois</button>
         <button id="btnDone" class="btn-done">Feito</button>
@@ -143,16 +153,39 @@ function renderNext() {
   });
 }
 
-// ---------- Renderização: lista completa ----------
+// ---------- Renderização: lista completa, agrupada por categoria ----------
+
+function agruparPorCategoria(items) {
+  const grupos = new Map();
+  for (const item of items) {
+    const chave = item.categoria || SEM_CATEGORIA;
+    if (!grupos.has(chave)) grupos.set(chave, []);
+    grupos.get(chave).push(item);
+  }
+  // "Sem categoria" sempre por último, o resto em ordem alfabética
+  const chaves = [...grupos.keys()].sort((a, b) => {
+    if (a === SEM_CATEGORIA) return 1;
+    if (b === SEM_CATEGORIA) return -1;
+    return a.localeCompare(b, "pt-BR");
+  });
+  return chaves.map((chave) => ({ categoria: chave, items: grupos.get(chave) }));
+}
 
 function renderList() {
+  const grupos = agruparPorCategoria(pendingItems);
+
   el.pendingList.innerHTML =
     `<div class="list-section-title">Pendentes (${pendingItems.length})</div>` +
-    pendingItems.map((item) => renderItemCard(item, { withShare: true })).join("");
+    grupos.map((grupo) => `
+      <div class="category-group">
+        <div class="category-heading">${escapeHtml(grupo.categoria)}</div>
+        ${grupo.items.map((item) => renderItemCard(item, { withShare: true, withMeta: true })).join("")}
+      </div>
+    `).join("");
 
   el.doneList.innerHTML = doneItems.length
     ? `<div class="list-section-title">Concluídos</div>` +
-      doneItems.map((item) => renderItemCard(item, { withShare: false })).join("")
+      doneItems.map((item) => renderItemCard(item, { withShare: false, withMeta: false })).join("")
     : "";
 
   wireItemCardEvents(el.pendingList);
@@ -190,6 +223,7 @@ function renderShared() {
 
 function renderItemCard(item, opts) {
   const withShare = opts && opts.withShare;
+  const withMeta = opts ? opts.withMeta !== false : true;
   const done = item.status === "feito";
   const checkAttr = done ? `data-uncheck="${item.id}"` : `data-check="${item.id}"`;
   const meta = done
@@ -197,10 +231,27 @@ function renderItemCard(item, opts) {
     : `Criado ${formatDate(item.criado_em)}`;
 
   const tags = [];
-  if (item.categoria) tags.push(`<span class="tag">${escapeHtml(item.categoria)}</span>`);
   if (item.tipo) tags.push(`<span class="tag">${item.tipo}</span>`);
   if (item.data_sugerida) tags.push(`<span class="tag">prazo: ${formatDate(item.data_sugerida)}</span>`);
   if (item.notas_ia) tags.push(`<span class="tag">${escapeHtml(item.notas_ia)}</span>`);
+
+  const importanciaAtual = item.importancia || "normal";
+  const importanciaRow = withMeta ? `
+    <div class="importancia-row">
+      ${["baixa", "normal", "alta"].map((nivel) => `
+        <button
+          class="imp-dot imp-${nivel} ${importanciaAtual === nivel ? "imp-active" : ""}"
+          data-importancia="${item.id}"
+          data-nivel="${nivel}"
+          title="Importância: ${IMPORTANCIA_LABEL[nivel]}"
+          aria-label="Marcar importância ${IMPORTANCIA_LABEL[nivel]}"
+        ></button>
+      `).join("")}
+      <button class="category-edit-btn" data-category-edit="${item.id}">
+        ${item.categoria ? escapeHtml(item.categoria) : "+ categoria"}
+      </button>
+    </div>
+  ` : "";
 
   const shareChips = withShare && otherProfiles.length > 0
     ? `<div class="share-row">` +
@@ -220,10 +271,78 @@ function renderItemCard(item, opts) {
           <span>${meta}</span>
           ${tags.join("")}
         </div>
+        ${importanciaRow}
         ${shareChips}
       </div>
     </div>
   `;
+}
+
+function categoriasConhecidas() {
+  const todas = [...pendingItems, ...doneItems]
+    .map((i) => i.categoria)
+    .filter(Boolean);
+  return [...new Set(todas)].sort((a, b) => a.localeCompare(b, "pt-BR"));
+}
+
+function abrirSeletorCategoria(itemId, anchorEl) {
+  document.querySelectorAll(".category-popover").forEach((p) => p.remove());
+
+  const item = pendingItems.find((i) => i.id === itemId) || doneItems.find((i) => i.id === itemId);
+  if (!item) return;
+
+  const conhecidas = categoriasConhecidas();
+
+  const popover = document.createElement("div");
+  popover.className = "category-popover";
+  popover.innerHTML = `
+    ${conhecidas.map((c) => `<button class="chip category-option" data-set-category="${escapeHtml(c)}">${escapeHtml(c)}</button>`).join("")}
+    <div class="category-new-row">
+      <input type="text" class="category-new-input" placeholder="nova categoria" value="${item.categoria ? escapeHtml(item.categoria) : ""}">
+      <button class="category-save-btn">OK</button>
+    </div>
+  `;
+
+  anchorEl.parentElement.appendChild(popover);
+
+  popover.querySelectorAll("[data-set-category]").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      await salvarCategoria(itemId, btn.dataset.setCategory);
+      popover.remove();
+    });
+  });
+
+  const input = popover.querySelector(".category-new-input");
+  const salvar = async () => {
+    const valor = input.value.trim();
+    await salvarCategoria(itemId, valor || null);
+    popover.remove();
+  };
+  popover.querySelector(".category-save-btn").addEventListener("click", salvar);
+  input.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") { e.preventDefault(); salvar(); }
+  });
+
+  // fecha ao clicar fora
+  setTimeout(() => {
+    document.addEventListener("click", function onClickOutside(e) {
+      if (!popover.contains(e.target) && e.target !== anchorEl) {
+        popover.remove();
+        document.removeEventListener("click", onClickOutside);
+      }
+    });
+  }, 0);
+}
+
+async function salvarCategoria(itemId, categoria) {
+  const item = pendingItems.find((i) => i.id === itemId) || doneItems.find((i) => i.id === itemId);
+  if (item) item.categoria = categoria;
+  try {
+    await db.updateCategoria(itemId, categoria);
+    renderList();
+  } catch (err) {
+    console.error("Erro ao salvar categoria:", err);
+  }
 }
 
 function wireItemCardEvents(container) {
@@ -238,6 +357,31 @@ function wireItemCardEvents(container) {
     btn.addEventListener("click", async () => {
       await db.markUndone(btn.dataset.uncheck);
       await refreshData();
+    });
+  });
+
+  container.querySelectorAll("[data-importancia]").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      const itemId = btn.dataset.importancia;
+      const nivel = btn.dataset.nivel;
+      const item = pendingItems.find((i) => i.id === itemId);
+      if (!item) return;
+      item.importancia = nivel;
+      renderList();
+      try {
+        await db.updateImportancia(itemId, nivel);
+        pendingItems = ordenarPorImportancia(pendingItems);
+        renderNext();
+      } catch (err) {
+        console.error("Erro ao salvar importância:", err);
+      }
+    });
+  });
+
+  container.querySelectorAll("[data-category-edit]").forEach((btn) => {
+    btn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      abrirSeletorCategoria(btn.dataset.categoryEdit, btn);
     });
   });
 
@@ -259,7 +403,7 @@ function wireItemCardEvents(container) {
         item.compartilhado_com = novo;
       } catch (err) {
         console.error("Erro ao compartilhar:", err);
-        btn.classList.toggle("chip-active"); // desfaz visualmente se falhar
+        btn.classList.toggle("chip-active");
       }
     });
   });
@@ -271,10 +415,24 @@ function escapeHtml(str) {
   return div.innerHTML;
 }
 
+// ---------- Ordenação ----------
+
+function ordenarPorImportancia(items) {
+  // Sort estável: mantém a ordem de prioridade/idade já vinda do banco,
+  // só reordena por peso de importância por cima.
+  return [...items].sort((a, b) => {
+    const pa = IMPORTANCIA_PESO[a.importancia || "normal"];
+    const pb = IMPORTANCIA_PESO[b.importancia || "normal"];
+    return pb - pa;
+  });
+}
+
 // ---------- Sincronização de dados ----------
 
 async function refreshData() {
-  [pendingItems, doneItems] = await Promise.all([db.listPending(), db.listDone()]);
+  const [pending, done] = await Promise.all([db.listPending(), db.listDone()]);
+  pendingItems = ordenarPorImportancia(pending);
+  doneItems = done;
   renderNext();
   renderList();
   notifications.updateBadge(pendingItems.length);

@@ -506,3 +506,100 @@ main {
   border-color: var(--purple);
   color: var(--purple);
 }
+
+/* ---------- Agrupamento por categoria ---------- */
+
+.category-group {
+  margin-bottom: var(--space-2);
+}
+
+.category-heading {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--purple);
+  margin: var(--space-2) 0 6px;
+  padding-left: 2px;
+}
+
+/* ---------- Importância ---------- */
+
+.importancia-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.imp-dot {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: 2px solid var(--border);
+  background: transparent;
+  cursor: pointer;
+  padding: 0;
+}
+
+.imp-dot.imp-baixa.imp-active { background: #6B7280; border-color: #6B7280; }
+.imp-dot.imp-normal.imp-active { background: var(--purple); border-color: var(--purple); }
+.imp-dot.imp-alta.imp-active { background: #FF6B6B; border-color: #FF6B6B; }
+
+.category-edit-btn {
+  margin-left: auto;
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px dashed var(--border);
+  background: transparent;
+  color: var(--text-dim);
+  font-size: 12px;
+  font-family: var(--font-body);
+  cursor: pointer;
+}
+
+.category-popover {
+  position: relative;
+  margin-top: 8px;
+  padding: var(--space-1);
+  background: var(--surface-raised);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  z-index: 5;
+}
+
+.category-new-row {
+  display: flex;
+  gap: 6px;
+  width: 100%;
+  margin-top: 4px;
+}
+
+.category-new-input {
+  flex: 1;
+  padding: 8px 10px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  font-size: 13px;
+  font-family: var(--font-body);
+  outline: none;
+  min-width: 0;
+}
+
+.category-new-input:focus {
+  border-color: var(--purple);
+}
+
+.category-save-btn {
+  padding: 8px 14px;
+  border-radius: var(--radius-sm);
+  border: none;
+  background: var(--purple);
+  color: var(--paper);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
