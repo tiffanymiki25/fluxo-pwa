@@ -218,6 +218,63 @@ const db = (() => {
     if (error) throw error;
   }
 
+  async function createPostagem(texto, projeto) {
+    const { data, error } = await client
+      .from("postagens")
+      .insert({ texto, projeto, owner_id: currentUserId })
+      .select()
+      .single();
+    if (error) throw error;
+    return data;
+  }
+
+  async function listPostagens() {
+    const { data, error } = await client
+      .from("postagens")
+      .select("*")
+      .order("criado_em", { ascending: false });
+    if (error) throw error;
+    return data;
+  }
+
+  async function marcarPostagemPublicada(id, { link, plataforma, data_publicacao }) {
+    const { error } = await client
+      .from("postagens")
+      .update({
+        status: "publicado",
+        link: link || null,
+        plataforma: plataforma || null,
+        data_publicacao: data_publicacao || new Date().toISOString(),
+        atualizado_em: new Date().toISOString(),
+      })
+      .eq("id", id);
+    if (error) throw error;
+  }
+
+  async function updatePostagemMetricas(id, { visualizacoes, curtidas, comentarios }) {
+    const { error } = await client
+      .from("postagens")
+      .update({
+        visualizacoes,
+        curtidas,
+        comentarios,
+        atualizado_em: new Date().toISOString(),
+      })
+      .eq("id", id);
+    if (error) throw error;
+  }
+
+  function onPostagensChange(callback) {
+    return client
+      .channel("postagens-changes")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "postagens" },
+        callback
+      )
+      .subscribe();
+  }
+
   function onChange(callback) {
     return client
       .channel("items-changes")
@@ -250,6 +307,11 @@ const db = (() => {
     postpone,
     classifyItem,
     savePushSubscription,
+    createPostagem,
+    listPostagens,
+    marcarPostagemPublicada,
+    updatePostagemMetricas,
+    onPostagensChange,
     onChange,
     getUserId: () => currentUserId,
   };
