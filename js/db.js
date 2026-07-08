@@ -6,23 +6,81 @@ const db = (() => {
   let client = null;
   let currentUserId = null;
 
-  async function init() {
-    client = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  function initClient() {
+    if (!client) client = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    return client;
+  }
 
+  async function getSession() {
+    initClient();
+    const { data: { session } } = await client.auth.getSession();
+    if (session) currentUserId = session.user.id;
+    return session;
+  }
+
+  function isAnonymousSession(session) {
+    return !!session && session.user.is_anonymous === true;
+  }
+
+  async function signUp(email, password, nome) {
+    initClient();
     const { data: { session } } = await client.auth.getSession();
 
-    if (session) {
-      currentUserId = session.user.id;
-    } else {
-      // Sessão anônima: identifica o dispositivo/usuário sem exigir
-      // cadastro. Quando o compartilhamento (Camada 3) entrar, isso
-      // vira login de verdade para Tiffany, Amanda e Marcelo.
-      const { data, error } = await client.auth.signInAnonymously();
+    let userId;
+
+    if (isAnonymousSession(session)) {
+      // Já existe uma sessão anônima neste navegador (caso da Tiffany,
+      // que já capturou itens antes do login existir). Converter em
+      // vez de criar do zero preserva o mesmo id — os itens continuam dela.
+      const { data, error } = await client.auth.updateUser({ email, password });
       if (error) throw error;
-      currentUserId = data.user.id;
+      userId = data.user.id;
+    } else {
+      const { data, error } = await client.auth.signUp({ email, password });
+      if (error) throw error;
+      userId = data.user.id;
     }
 
-    return currentUserId;
+    currentUserId = userId;
+
+    const { error: profileError } = await client
+      .from("profiles")
+      .upsert({ id: userId, nome });
+    if (profileError) throw profileError;
+
+    return userId;
+  }
+
+  async function signIn(email, password) {
+    initClient();
+    const { data, error } = await client.auth.signInWithPassword({ email, password });
+    if (error) throw error;
+    currentUserId = data.user.id;
+    return data.user.id;
+  }
+
+  async function signOut() {
+    await client.auth.signOut();
+    currentUserId = null;
+  }
+
+  async function getMyProfile() {
+    const { data, error } = await client
+      .from("profiles")
+      .select("*")
+      .eq("id", currentUserId)
+      .maybeSingle();
+    if (error) throw error;
+    return data;
+  }
+
+  async function listOtherProfiles() {
+    const { data, error } = await client
+      .from("profiles")
+      .select("*")
+      .neq("id", currentUserId);
+    if (error) throw error;
+    return data;
   }
 
   async function createItem(texto) {
@@ -40,6 +98,7 @@ const db = (() => {
       .from("items")
       .select("*")
       .eq("status", "pendente")
+      .eq("owner_id", currentUserId)
       .order("prioridade_calculada", { ascending: false })
       .order("criado_em", { ascending: true });
     if (error) throw error;
@@ -51,10 +110,39 @@ const db = (() => {
       .from("items")
       .select("*")
       .eq("status", "feito")
+      .eq("owner_id", currentUserId)
       .order("concluido_em", { ascending: false })
       .limit(limit);
     if (error) throw error;
     return data;
+  }
+
+  async function listSharedWithMe() {
+    const { data, error } = await client
+      .from("items")
+      .select("*")
+      .contains("compartilhado_com", [currentUserId])
+      .order("criado_em", { ascending: false });
+    if (error) throw error;
+    return data;
+  }
+
+  async function getProfilesByIds(ids) {
+    if (!ids || ids.length === 0) return [];
+    const { data, error } = await client
+      .from("profiles")
+      .select("*")
+      .in("id", ids);
+    if (error) throw error;
+    return data;
+  }
+
+  async function updateSharing(itemId, sharedWithIds) {
+    const { error } = await client
+      .from("items")
+      .update({ compartilhado_com: sharedWithIds })
+      .eq("id", itemId);
+    if (error) throw error;
   }
 
   async function markDone(id) {
@@ -84,6 +172,27 @@ const db = (() => {
     if (error) throw error;
   }
 
+  async function classifyItem(itemId) {
+    // Fire-and-forget do ponto de vista da UI: não bloqueia a captura.
+    // A classificação chega via realtime quando terminar.
+    try {
+      await fetch("/api/classify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ item_id: itemId }),
+      });
+    } catch (err) {
+      console.error("Falha ao pedir classificação:", err);
+    }
+  }
+
+  async function savePushSubscription(subscription) {
+    const { error } = await client
+      .from("push_subscriptions")
+      .upsert({ owner_id: currentUserId, subscription });
+    if (error) throw error;
+  }
+
   function onChange(callback) {
     return client
       .channel("items-changes")
@@ -96,13 +205,24 @@ const db = (() => {
   }
 
   return {
-    init,
+    getSession,
+    isAnonymousSession,
+    signUp,
+    signIn,
+    signOut,
+    getMyProfile,
+    listOtherProfiles,
+    getProfilesByIds,
     createItem,
     listPending,
     listDone,
+    listSharedWithMe,
+    updateSharing,
     markDone,
     markUndone,
     postpone,
+    classifyItem,
+    savePushSubscription,
     onChange,
     getUserId: () => currentUserId,
   };

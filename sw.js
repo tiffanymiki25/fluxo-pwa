@@ -1,4 +1,4 @@
-const CACHE_NAME = "fluxo-v1";
+const CACHE_NAME = "fluxo-v2";
 const ASSETS = [
   "./",
   "./index.html",
@@ -6,6 +6,7 @@ const ASSETS = [
   "./js/config.js",
   "./js/db.js",
   "./js/notifications.js",
+  "./js/auth.js",
   "./js/app.js",
   "./manifest.json",
   "./icons/icon-192.png",
