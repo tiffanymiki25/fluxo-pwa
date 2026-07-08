@@ -43,6 +43,8 @@ const el = {
   navNext: document.getElementById("navNext"),
   navList: document.getElementById("navList"),
   navShared: document.getElementById("navShared"),
+  navPosts: document.getElementById("navPosts"),
+  postsView: document.getElementById("postsView"),
   logoutBtn: document.getElementById("logoutBtn"),
 };
 
@@ -60,10 +62,12 @@ function showView(view) {
   el.nextStage.classList.toggle("hidden", view !== "next");
   el.listView.classList.toggle("active", view === "list");
   el.sharedView.classList.toggle("active", view === "shared");
+  el.postsView.classList.toggle("active", view === "posts");
 
   el.navNext.classList.toggle("active", view === "next");
   el.navList.classList.toggle("active", view === "list");
   el.navShared.classList.toggle("active", view === "shared");
+  el.navPosts.classList.toggle("active", view === "posts");
 }
 
 el.navNext.addEventListener("click", () => showView("next"));
@@ -71,6 +75,10 @@ el.navList.addEventListener("click", () => showView("list"));
 el.navShared.addEventListener("click", () => {
   showView("shared");
   refreshShared();
+});
+el.navPosts.addEventListener("click", () => {
+  showView("posts");
+  postagens.refresh();
 });
 
 el.logoutBtn.addEventListener("click", async () => {
@@ -486,6 +494,8 @@ async function startApp() {
 
   otherProfiles = await db.listOtherProfiles();
   otherProfiles.forEach((p) => (profilesById[p.id] = p));
+
+  postagens.init();
 
   await refreshData();
   db.onChange(() => {
