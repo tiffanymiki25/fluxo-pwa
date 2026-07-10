@@ -275,6 +275,53 @@ const db = (() => {
       .subscribe();
   }
 
+  async function createCompromisso(texto, dataHora, local, notas) {
+    const { data, error } = await client
+      .from("compromissos")
+      .insert({ texto, data_hora: dataHora, local: local || null, notas: notas || null, owner_id: currentUserId })
+      .select()
+      .single();
+    if (error) throw error;
+    return data;
+  }
+
+  async function listCompromissos() {
+    const { data, error } = await client
+      .from("compromissos")
+      .select("*")
+      .order("data_hora", { ascending: true });
+    if (error) throw error;
+    return data;
+  }
+
+  async function deleteCompromisso(id) {
+    const { error } = await client.from("compromissos").delete().eq("id", id);
+    if (error) throw error;
+  }
+
+  async function listItemsComPrazo() {
+    const { data, error } = await client
+      .from("items")
+      .select("*")
+      .eq("owner_id", currentUserId)
+      .eq("status", "pendente")
+      .not("data_sugerida", "is", null)
+      .order("data_sugerida", { ascending: true });
+    if (error) throw error;
+    return data;
+  }
+
+  function onCompromissosChange(callback) {
+    return client
+      .channel("compromissos-changes")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "compromissos" },
+        callback
+      )
+      .subscribe();
+  }
+
   function onChange(callback) {
     return client
       .channel("items-changes")
@@ -312,6 +359,11 @@ const db = (() => {
     marcarPostagemPublicada,
     updatePostagemMetricas,
     onPostagensChange,
+    createCompromisso,
+    listCompromissos,
+    deleteCompromisso,
+    listItemsComPrazo,
+    onCompromissosChange,
     onChange,
     getUserId: () => currentUserId,
   };

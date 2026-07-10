@@ -45,6 +45,8 @@ const el = {
   navShared: document.getElementById("navShared"),
   navPosts: document.getElementById("navPosts"),
   postsView: document.getElementById("postsView"),
+  navCalendar: document.getElementById("navCalendar"),
+  calendarView: document.getElementById("calendarView"),
   captureSection: document.querySelector(".capture"),
   logoutBtn: document.getElementById("logoutBtn"),
 };
@@ -64,12 +66,14 @@ function showView(view) {
   el.listView.classList.toggle("active", view === "list");
   el.sharedView.classList.toggle("active", view === "shared");
   el.postsView.classList.toggle("active", view === "posts");
-  el.captureSection.style.display = view === "posts" ? "none" : "block";
+  el.calendarView.classList.toggle("active", view === "calendar");
+  el.captureSection.style.display = (view === "posts" || view === "calendar") ? "none" : "block";
 
   el.navNext.classList.toggle("active", view === "next");
   el.navList.classList.toggle("active", view === "list");
   el.navShared.classList.toggle("active", view === "shared");
   el.navPosts.classList.toggle("active", view === "posts");
+  el.navCalendar.classList.toggle("active", view === "calendar");
 }
 
 el.navNext.addEventListener("click", () => showView("next"));
@@ -81,6 +85,10 @@ el.navShared.addEventListener("click", () => {
 el.navPosts.addEventListener("click", () => {
   showView("posts");
   postagens.refresh();
+});
+el.navCalendar.addEventListener("click", () => {
+  showView("calendar");
+  calendario.refresh();
 });
 
 el.logoutBtn.addEventListener("click", async () => {
@@ -207,6 +215,7 @@ function renderList() {
 
   el.pendingList.innerHTML =
     `<div class="list-section-title">Pendentes (${pendingItems.length})</div>` +
+    `<div class="category-columns">` +
     grupos.map((grupo) => {
       const cor = grupo.categoria !== SEM_CATEGORIA ? corCategoria(grupo.categoria) : null;
       const headingStyle = cor ? `color:${cor.text};` : "";
@@ -216,7 +225,8 @@ function renderList() {
         ${grupo.items.map((item) => renderItemCard(item, { withShare: true, withMeta: true })).join("")}
       </div>
     `;
-    }).join("");
+    }).join("") +
+    `</div>`;
 
   el.doneList.innerHTML = doneItems.length
     ? `<div class="list-section-title">Concluídos</div>` +
@@ -498,6 +508,7 @@ async function startApp() {
   otherProfiles.forEach((p) => (profilesById[p.id] = p));
 
   postagens.init();
+  calendario.init();
 
   await refreshData();
   db.onChange(() => {
