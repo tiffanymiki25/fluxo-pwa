@@ -73,12 +73,29 @@ const calendario = (() => {
     }));
   }
 
+  function diasRestantes(iso) {
+    const agora = new Date();
+    const hoje = new Date(agora.getFullYear(), agora.getMonth(), agora.getDate());
+    const alvo = new Date(iso);
+    const alvoDia = new Date(alvo.getFullYear(), alvo.getMonth(), alvo.getDate());
+    const diff = Math.round((alvoDia - hoje) / 86400000);
+
+    if (diff === 0) return "Hoje";
+    if (diff === 1) return "Amanhã";
+    if (diff > 1) return `Faltam ${diff} dias`;
+    return null; // passado — não mostra contagem
+  }
+
   function renderCard(entry) {
     const agora = new Date();
     const dataEntry = new Date(entry.data);
     const passado = dataEntry < agora;
 
     const tags = [];
+    const contagem = !passado ? diasRestantes(entry.data) : null;
+    if (contagem) {
+      tags.push(`<span class="pill" style="background:var(--info-bg);border-color:var(--info-border);color:var(--info);">${contagem}</span>`);
+    }
     if (entry.tipo === "compromisso") {
       tags.push(`<span class="pill" style="background:var(--purple-soft);border-color:#DDD6FE;color:var(--purple);">Compromisso</span>`);
       if (entry.local) tags.push(`<span class="tag">📍 ${escapeHtml(entry.local)}</span>`);
