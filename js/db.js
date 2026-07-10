@@ -299,6 +299,14 @@ const db = (() => {
     if (error) throw error;
   }
 
+  async function updateCompromissoSharing(id, sharedWithIds) {
+    const { error } = await client
+      .from("compromissos")
+      .update({ compartilhado_com: sharedWithIds })
+      .eq("id", id);
+    if (error) throw error;
+  }
+
   async function listItemsComPrazo() {
     const { data, error } = await client
       .from("items")
@@ -320,6 +328,24 @@ const db = (() => {
         callback
       )
       .subscribe();
+  }
+
+  async function updateItemContent(id, fields) {
+    const { error } = await client.from("items").update(fields).eq("id", id);
+    if (error) throw error;
+  }
+
+  async function updateCompromisso(id, fields) {
+    const { error } = await client.from("compromissos").update(fields).eq("id", id);
+    if (error) throw error;
+  }
+
+  async function updatePostagemConteudo(id, fields) {
+    const { error } = await client
+      .from("postagens")
+      .update({ ...fields, atualizado_em: new Date().toISOString() })
+      .eq("id", id);
+    if (error) throw error;
   }
 
   function onChange(callback) {
@@ -352,6 +378,9 @@ const db = (() => {
     markDone,
     markUndone,
     postpone,
+    updateItemContent,
+    updateCompromisso,
+    updatePostagemConteudo,
     classifyItem,
     savePushSubscription,
     createPostagem,
@@ -362,6 +391,7 @@ const db = (() => {
     createCompromisso,
     listCompromissos,
     deleteCompromisso,
+    updateCompromissoSharing,
     listItemsComPrazo,
     onCompromissosChange,
     onChange,

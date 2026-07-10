@@ -136,7 +136,9 @@ const postagens = (() => {
                 <span class="tag">criado ${formatarData(p.criado_em)}</span>
               </div>
               <button class="category-save-btn" style="margin-top:10px;" data-publish="${p.id}">Marcar como publicado</button>
+              <button class="category-edit-btn" data-edit-post="${p.id}">editar</button>
               <div class="publish-form" id="publish-form-${p.id}" style="display:none;"></div>
+              <div class="edit-form" id="edit-post-${p.id}" style="display:none;"></div>
             </div>
           </div>
         `;
@@ -144,6 +146,10 @@ const postagens = (() => {
 
     elP.planejados.querySelectorAll("[data-publish]").forEach((btn) => {
       btn.addEventListener("click", () => abrirFormPublicar(btn.dataset.publish));
+    });
+
+    elP.planejados.querySelectorAll("[data-edit-post]").forEach((btn) => {
+      btn.addEventListener("click", () => abrirEdicaoPost(btn.dataset.editPost));
     });
   }
 
@@ -217,6 +223,8 @@ const postagens = (() => {
                 <label>Curtidas<input type="number" min="0" data-metric="curtidas" data-id="${p.id}" value="${p.curtidas ?? ""}"></label>
                 <label>Comentários<input type="number" min="0" data-metric="comentarios" data-id="${p.id}" value="${p.comentarios ?? ""}"></label>
               </div>
+              <button class="category-edit-btn" style="margin-top:10px;" data-edit-post="${p.id}">editar</button>
+              <div class="edit-form" id="edit-post-${p.id}" style="display:none;"></div>
             </div>
           </div>
         `;
@@ -243,6 +251,10 @@ const postagens = (() => {
         }
       });
     });
+
+    elP.publicados.querySelectorAll("[data-edit-post]").forEach((btn) => {
+      btn.addEventListener("click", () => abrirEdicaoPost(btn.dataset.editPost));
+    });
   }
 
   function escapeHtml(str) {
@@ -256,6 +268,71 @@ const postagens = (() => {
     renderFilterRow();
     renderPlanejados();
     renderPublicados();
+  }
+
+  function abrirEdicaoPost(id) {
+    const container = document.getElementById(`edit-post-${id}`);
+    if (!container) return;
+
+    if (container.style.display === "block") {
+      container.style.display = "none";
+      return;
+    }
+
+    const post = lista.find((p) => p.id === id);
+    if (!post) return;
+
+    const ehPublicado = post.status === "publicado";
+
+    container.style.display = "block";
+    container.innerHTML = `
+      <textarea class="category-new-input" rows="2" style="width:100%;">${escapeHtml(post.texto)}</textarea>
+      <input type="text" class="category-new-input" style="margin-top:8px;width:100%;" placeholder="projeto" value="${escapeHtml(post.projeto)}">
+      ${ehPublicado ? `
+        <div class="platform-row">
+          ${PLATAFORMAS.map((pl) => `<button type="button" class="chip platform-chip ${post.plataforma === pl ? "chip-active" : ""}" data-edit-platform="${escapeHtml(pl)}">${escapeHtml(pl)}</button>`).join("")}
+        </div>
+        <input type="url" class="category-new-input" style="margin-top:8px;width:100%;" placeholder="link" value="${post.link ? escapeHtml(post.link) : ""}">
+      ` : ""}
+      <div style="display:flex;gap:8px;margin-top:8px;">
+        <button class="category-save-btn" data-save-post="${id}">Salvar</button>
+        <button class="category-edit-btn" data-cancel-post="${id}">Cancelar</button>
+      </div>
+    `;
+
+    let plataformaEscolhida = post.plataforma || null;
+    container.querySelectorAll("[data-edit-platform]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        plataformaEscolhida = btn.dataset.editPlatform;
+        container.querySelectorAll("[data-edit-platform]").forEach((b) => b.classList.remove("chip-active"));
+        btn.classList.add("chip-active");
+      });
+    });
+
+    container.querySelector("[data-save-post]").addEventListener("click", async () => {
+      const novoTexto = container.querySelector("textarea").value.trim();
+      const inputs = container.querySelectorAll("input");
+      const novoProjeto = inputs[0].value.trim();
+      if (!novoTexto || !novoProjeto) return;
+
+      const campos = { texto: novoTexto, projeto: novoProjeto };
+      if (ehPublicado) {
+        campos.plataforma = plataformaEscolhida;
+        campos.link = inputs[1] ? inputs[1].value.trim() : post.link;
+      }
+
+      try {
+        await db.updatePostagemConteudo(id, campos);
+        container.style.display = "none";
+        await refresh();
+      } catch (err) {
+        console.error("Erro ao salvar edição da postagem:", err);
+      }
+    });
+
+    container.querySelector("[data-cancel-post]").addEventListener("click", () => {
+      container.style.display = "none";
+    });
   }
 
   async function refresh() {

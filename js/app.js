@@ -296,8 +296,13 @@ function renderItemCard(item, opts) {
       <button class="category-edit-btn" data-category-edit="${item.id}" style="${categoriaStyle}">
         ${item.categoria ? escapeHtml(item.categoria) : "+ categoria"}
       </button>
+      <button class="category-edit-btn" data-edit-item="${item.id}">editar</button>
     </div>
-  ` : "";
+  ` : `
+    <div class="tags-row">
+      <button class="category-edit-btn" data-edit-item="${item.id}">editar</button>
+    </div>
+  `;
 
   const shareChips = withShare && otherProfiles.length > 0
     ? `<div class="share-row">` +
@@ -319,6 +324,7 @@ function renderItemCard(item, opts) {
         </div>
         ${importanciaRow}
         ${shareChips}
+        <div class="edit-form" id="edit-item-${item.id}" style="display:none;"></div>
       </div>
     </div>
   `;
@@ -394,6 +400,52 @@ async function salvarCategoria(itemId, categoria) {
   }
 }
 
+function abrirEdicaoItem(itemId) {
+  const container = document.getElementById(`edit-item-${itemId}`);
+  if (!container) return;
+
+  if (container.style.display === "block") {
+    container.style.display = "none";
+    return;
+  }
+
+  const item = pendingItems.find((i) => i.id === itemId) || doneItems.find((i) => i.id === itemId);
+  if (!item) return;
+
+  const dataValue = item.data_sugerida ? new Date(item.data_sugerida).toISOString().slice(0, 10) : "";
+
+  container.style.display = "block";
+  container.innerHTML = `
+    <textarea class="category-new-input edit-textarea" rows="2" style="width:100%;">${escapeHtml(item.texto_original)}</textarea>
+    <input type="date" class="category-new-input" style="margin-top:8px;" value="${dataValue}">
+    <div style="display:flex;gap:8px;margin-top:8px;">
+      <button class="category-save-btn" data-save-item="${itemId}">Salvar</button>
+      <button class="category-edit-btn" data-cancel-item="${itemId}">Cancelar</button>
+    </div>
+  `;
+
+  container.querySelector("[data-save-item]").addEventListener("click", async () => {
+    const novoTexto = container.querySelector("textarea").value.trim();
+    const novaData = container.querySelector("input[type=date]").value;
+    if (!novoTexto) return;
+
+    try {
+      await db.updateItemContent(itemId, {
+        texto_original: novoTexto,
+        data_sugerida: novaData || null,
+      });
+      container.style.display = "none";
+      await refreshData();
+    } catch (err) {
+      console.error("Erro ao salvar edição do item:", err);
+    }
+  });
+
+  container.querySelector("[data-cancel-item]").addEventListener("click", () => {
+    container.style.display = "none";
+  });
+}
+
 function wireItemCardEvents(container) {
   container.querySelectorAll("[data-check]").forEach((btn) => {
     btn.addEventListener("click", async () => {
@@ -431,6 +483,13 @@ function wireItemCardEvents(container) {
     btn.addEventListener("click", (e) => {
       e.stopPropagation();
       abrirSeletorCategoria(btn.dataset.categoryEdit, btn);
+    });
+  });
+
+  container.querySelectorAll("[data-edit-item]").forEach((btn) => {
+    btn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      abrirEdicaoItem(btn.dataset.editItem);
     });
   });
 

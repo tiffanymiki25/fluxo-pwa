@@ -70,6 +70,8 @@ const calendario = (() => {
       tipo,
       local: x.local || null,
       categoria: x.categoria || null,
+      ownerId: x.owner_id || null,
+      compartilhadoCom: x.compartilhado_com || [],
     }));
   }
 
@@ -99,6 +101,11 @@ const calendario = (() => {
     if (entry.tipo === "compromisso") {
       tags.push(`<span class="pill" style="background:var(--purple-soft);border-color:#DDD6FE;color:var(--purple);">Compromisso</span>`);
       if (entry.local) tags.push(`<span class="tag">📍 ${escapeHtml(entry.local)}</span>`);
+      const souDono = entry.ownerId === db.getUserId();
+      if (!souDono) {
+        const nomeDono = (profilesById[entry.ownerId] && profilesById[entry.ownerId].nome) || "alguém";
+        tags.push(`<span class="tag">de ${escapeHtml(nomeDono)}</span>`);
+      }
     } else if (entry.categoria) {
       const cor = corCategoria(entry.categoria);
       tags.push(`<span class="pill" style="background:${cor.bg};border-color:${cor.border};color:${cor.text};">${escapeHtml(entry.categoria)}</span>`);
@@ -108,6 +115,24 @@ const calendario = (() => {
       ? `<button class="category-edit-btn" data-del-comp="${entry.id}">excluir</button>`
       : `<button class="category-edit-btn" data-done-item="${entry.id}">marcar feito</button>`;
 
+    const souDonoCompromisso = entry.tipo === "compromisso" && entry.ownerId === db.getUserId();
+    const editBtn = souDonoCompromisso
+      ? `<button class="category-edit-btn" data-edit-comp="${entry.id}">editar</button>`
+      : "";
+
+    const shareChips = souDonoCompromisso && otherProfiles.length > 0
+      ? `<div class="share-row">` +
+          otherProfiles.map((p) => {
+            const active = entry.compartilhadoCom.includes(p.id);
+            return `<button class="chip ${active ? "chip-active" : ""}" data-share-comp="${entry.id}" data-person="${p.id}">${escapeHtml(p.nome)}</button>`;
+          }).join("") +
+        `</div>`
+      : "";
+
+    const editContainer = souDonoCompromisso
+      ? `<div class="edit-form" id="edit-comp-${entry.id}" style="display:none;"></div>`
+      : "";
+
     return `
       <div class="item-card">
         <div class="item-body">
@@ -116,7 +141,10 @@ const calendario = (() => {
             <span class="tag">${formatarDataHora(entry.data, entry.tipo === "compromisso")}</span>
             ${tags.join("")}
             ${acao}
+            ${editBtn}
           </div>
+          ${shareChips}
+          ${editContainer}
         </div>
       </div>
     `;
@@ -166,6 +194,93 @@ const calendario = (() => {
           console.error("Erro ao marcar item como feito:", err);
         }
       });
+    });
+
+    document.querySelectorAll("[data-edit-comp]").forEach((btn) => {
+      btn.addEventListener("click", () => abrirEdicaoCompromisso(btn.dataset.editComp));
+    });
+
+    document.querySelectorAll("[data-share-comp]").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        const id = btn.dataset.shareComp;
+        const personId = btn.dataset.person;
+        const compromisso = compromissos.find((c) => c.id === id);
+        if (!compromisso) return;
+
+        const atual = compromisso.compartilhado_com || [];
+        const novo = atual.includes(personId)
+          ? atual.filter((pid) => pid !== personId)
+          : [...atual, personId];
+
+        btn.classList.toggle("chip-active");
+        try {
+          await db.updateCompromissoSharing(id, novo);
+          compromisso.compartilhado_com = novo;
+        } catch (err) {
+          console.error("Erro ao compartilhar compromisso:", err);
+          btn.classList.toggle("chip-active");
+        }
+      });
+    });
+  }
+
+  function pad(n) { return String(n).padStart(2, "0"); }
+
+  function abrirEdicaoCompromisso(id) {
+    const container = document.getElementById(`edit-comp-${id}`);
+    if (!container) return;
+
+    if (container.style.display === "block") {
+      container.style.display = "none";
+      return;
+    }
+
+    const comp = compromissos.find((c) => c.id === id);
+    if (!comp) return;
+
+    const d = new Date(comp.data_hora);
+    const dataValue = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+    const horaValue = `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+
+    container.style.display = "block";
+    container.innerHTML = `
+      <textarea class="category-new-input" rows="2" style="width:100%;">${escapeHtml(comp.texto)}</textarea>
+      <div class="datetime-row">
+        <input type="date" class="category-new-input" value="${dataValue}">
+        <input type="time" class="category-new-input" value="${horaValue}">
+      </div>
+      <input type="text" class="category-new-input" style="margin-top:8px;width:100%;" placeholder="local (opcional)" value="${comp.local ? escapeHtml(comp.local) : ""}">
+      <div style="display:flex;gap:8px;margin-top:8px;">
+        <button class="category-save-btn" data-save-comp="${id}">Salvar</button>
+        <button class="category-edit-btn" data-cancel-comp="${id}">Cancelar</button>
+      </div>
+    `;
+
+    container.querySelector("[data-save-comp]").addEventListener("click", async () => {
+      const novoTexto = container.querySelector("textarea").value.trim();
+      const [dataInput, horaInput] = container.querySelectorAll("input[type=date], input[type=time]");
+      const localInput = container.querySelector("input[type=text]");
+      if (!novoTexto || !dataInput.value || !horaInput.value) return;
+
+      const [ano, mes, dia] = dataInput.value.split("-").map(Number);
+      const [h, m] = horaInput.value.split(":").map(Number);
+      const novaDataHora = new Date(ano, mes - 1, dia, h, m).toISOString();
+
+      try {
+        await db.updateCompromisso(id, {
+          texto: novoTexto,
+          data_hora: novaDataHora,
+          local: localInput.value.trim() || null,
+        });
+        container.style.display = "none";
+        await refresh();
+      } catch (err) {
+        console.error("Erro ao salvar edição do compromisso:", err);
+      }
+    });
+
+    container.querySelector("[data-cancel-comp]").addEventListener("click", () => {
+      container.style.display = "none";
     });
   }
 
