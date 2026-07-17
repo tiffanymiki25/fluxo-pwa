@@ -841,3 +841,265 @@ main {
 .datetime-row input {
   flex: 1;
 }
+
+/* ---------- Lista em linhas (aba Tudo) ---------- */
+
+.task-list {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+
+.task-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-left: 4px solid transparent;
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+  background: var(--surface);
+}
+
+.task-row:last-child {
+  border-bottom: none;
+}
+
+.task-row:active {
+  background: var(--surface-alt);
+}
+
+.task-row-text {
+  flex: 1;
+  min-width: 0;
+  font-size: 14px;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.task-row-text.done {
+  color: var(--text-dim);
+  text-decoration: line-through;
+}
+
+.dots-row {
+  display: flex;
+  gap: 5px;
+  flex-shrink: 0;
+}
+
+.dot {
+  width: 12px;
+  height: 12px;
+  min-width: 12px;
+  border-radius: 50%;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  opacity: 0.25;
+}
+
+.dot-lg {
+  width: 22px;
+  height: 22px;
+  min-width: 22px;
+}
+
+.dot.active {
+  opacity: 1;
+}
+
+.dot-baixa { background: #16A34A; }
+.dot-normal { background: #EAB308; }
+.dot-alta { background: #DC2626; }
+
+/* ---------- Modal de detalhe ---------- */
+
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.45);
+  display: none;
+  align-items: flex-end;
+  justify-content: center;
+  z-index: 50;
+  padding: 0;
+}
+
+.modal-card {
+  background: var(--surface);
+  width: 100%;
+  max-width: 480px;
+  max-height: 85dvh;
+  overflow-y: auto;
+  border-radius: 20px 20px 0 0;
+  padding: var(--space-3);
+  position: relative;
+  padding-bottom: calc(var(--space-4) + 20px);
+}
+
+.modal-close {
+  position: absolute;
+  top: var(--space-2);
+  right: var(--space-2);
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: var(--surface-alt);
+  color: var(--text-dim);
+  font-size: 16px;
+  cursor: pointer;
+}
+
+.modal-title {
+  font-family: var(--font-display);
+  font-size: 19px;
+  font-weight: 600;
+  color: var(--text);
+  padding-right: 40px;
+  line-height: 1.35;
+}
+
+.modal-meta {
+  margin-top: 6px;
+  font-size: 13px;
+  color: var(--text-dim);
+}
+
+.modal-section {
+  margin-top: var(--space-3);
+}
+
+.modal-label {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-dim);
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+
+@media (min-width: 860px) {
+  .modal-backdrop {
+    align-items: center;
+  }
+
+  .modal-card {
+    border-radius: var(--radius);
+    max-height: 80dvh;
+  }
+}
+
+/* ---------- Cards de categoria (Home) ---------- */
+
+.category-cards {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+  margin-bottom: var(--space-3);
+}
+
+.cat-card {
+  border: none;
+  border-radius: var(--radius-sm);
+  padding: 14px;
+  text-align: left;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.cat-card-active {
+  outline: 2px solid currentColor;
+  outline-offset: -2px;
+}
+
+.cat-card-count {
+  font-family: var(--font-display);
+  font-size: 26px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.cat-card-label {
+  font-size: 12px;
+  font-weight: 600;
+  opacity: 0.85;
+}
+
+/* ---------- Linha de tarefa: título + sub-info + categoria à direita ---------- */
+
+.task-row-main {
+  flex: 1;
+  min-width: 0;
+}
+
+.task-row-title {
+  font-size: 14px;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.task-row-title.done {
+  color: var(--text-dim);
+  text-decoration: line-through;
+}
+
+.task-row-sub {
+  font-size: 11px;
+  color: var(--text-dim);
+  margin-top: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.task-row-right {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 5px;
+  flex-shrink: 0;
+}
+
+.row-category {
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.item-check-disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.dot:disabled {
+  cursor: default;
+}
+
+.active-filter-chip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--purple-soft);
+  color: var(--purple);
+  border-radius: var(--radius-sm);
+  padding: 8px 12px;
+  font-size: 13px;
+  margin-bottom: var(--space-2);
+}
+
+.active-filter-chip button {
+  border: none;
+  background: none;
+  color: var(--purple);
+  cursor: pointer;
+  font-size: 14px;
+  margin-left: auto;
+}

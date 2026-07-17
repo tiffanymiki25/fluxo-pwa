@@ -4,11 +4,10 @@
 
 const IMPORTANCIA_PESO = { alta: 2, normal: 1, baixa: 0 };
 const IMPORTANCIA_LABEL = { alta: "Alta", normal: "Normal", baixa: "Baixa" };
-const PROXIMA_IMPORTANCIA = { baixa: "normal", normal: "alta", alta: "baixa" };
 const SEM_CATEGORIA = "Sem categoria";
 
-// Paleta rotativa pro estilo "pill colorida" do Eventos Haru — cada
-// categoria recebe uma cor consistente, calculada a partir do nome.
+// Paleta rotativa — cada categoria recebe uma cor consistente,
+// calculada a partir do nome.
 const CORES_CATEGORIA = [
   { bg: "#EFF6FF", border: "#BFDBFE", text: "#2563EB" }, // azul
   { bg: "#F0FDF4", border: "#BBF7D0", text: "#16A34A" }, // verde
@@ -27,29 +26,31 @@ function corCategoria(nome) {
 
 let pendingItems = [];
 let doneItems = [];
-let sharedItems = [];
 let otherProfiles = []; // [{id, nome}] — Amanda e Marcelo, do ponto de vista de quem logou
 let profilesById = {};
+let itemModalId = null; // item atualmente aberto no modal de detalhe
+let filtroCategoriaAtiva = null; // categoria selecionada nos cards da Home, ou null = tudo
 
 const el = {
   input: document.getElementById("captureInput"),
   send: document.getElementById("captureSend"),
   nextContent: document.getElementById("nextContent"),
   nextStage: document.getElementById("nextStage"),
+  homeCategoryCards: document.getElementById("homeCategoryCards"),
   listView: document.getElementById("listView"),
-  sharedView: document.getElementById("sharedView"),
   pendingList: document.getElementById("pendingList"),
   doneList: document.getElementById("doneList"),
-  sharedList: document.getElementById("sharedList"),
   navNext: document.getElementById("navNext"),
   navList: document.getElementById("navList"),
-  navShared: document.getElementById("navShared"),
   navPosts: document.getElementById("navPosts"),
   postsView: document.getElementById("postsView"),
   navCalendar: document.getElementById("navCalendar"),
   calendarView: document.getElementById("calendarView"),
   captureSection: document.querySelector(".capture"),
   logoutBtn: document.getElementById("logoutBtn"),
+  modalBackdrop: document.getElementById("itemModalBackdrop"),
+  modalBody: document.getElementById("itemModalBody"),
+  modalClose: document.getElementById("itemModalClose"),
 };
 
 // ---------- Formatação ----------
@@ -60,29 +61,29 @@ function formatDate(iso) {
   return d.toLocaleDateString("pt-BR", { day: "2-digit", month: "short" });
 }
 
+function escapeHtml(str) {
+  const div = document.createElement("div");
+  div.textContent = str;
+  return div.innerHTML;
+}
+
 // ---------- Navegação entre telas ----------
 
 function showView(view) {
   el.nextStage.classList.toggle("hidden", view !== "next");
   el.listView.classList.toggle("active", view === "list");
-  el.sharedView.classList.toggle("active", view === "shared");
   el.postsView.classList.toggle("active", view === "posts");
   el.calendarView.classList.toggle("active", view === "calendar");
   el.captureSection.style.display = (view === "posts" || view === "calendar") ? "none" : "block";
 
   el.navNext.classList.toggle("active", view === "next");
   el.navList.classList.toggle("active", view === "list");
-  el.navShared.classList.toggle("active", view === "shared");
   el.navPosts.classList.toggle("active", view === "posts");
   el.navCalendar.classList.toggle("active", view === "calendar");
 }
 
 el.navNext.addEventListener("click", () => showView("next"));
 el.navList.addEventListener("click", () => showView("list"));
-el.navShared.addEventListener("click", () => {
-  showView("shared");
-  refreshShared();
-});
 el.navPosts.addEventListener("click", () => {
   showView("posts");
   postagens.refresh();
@@ -145,7 +146,7 @@ async function submitCapture() {
   }
 }
 
-// ---------- Renderização: próximo item ----------
+// ---------- Home: próximo item + cards de categoria ----------
 
 function renderNext() {
   const item = pendingItems[0];
@@ -193,145 +194,168 @@ function renderNext() {
   });
 }
 
-// ---------- Renderização: lista completa, agrupada por categoria ----------
-
-function agruparPorCategoria(items) {
-  const grupos = new Map();
-  for (const item of items) {
+function renderHomeCards() {
+  const contagem = new Map();
+  pendingItems.forEach((item) => {
     const chave = item.categoria || SEM_CATEGORIA;
-    if (!grupos.has(chave)) grupos.set(chave, []);
-    grupos.get(chave).push(item);
-  }
-  // "Sem categoria" sempre por último, o resto em ordem alfabética
-  const chaves = [...grupos.keys()].sort((a, b) => {
+    contagem.set(chave, (contagem.get(chave) || 0) + 1);
+  });
+
+  const categorias = [...contagem.keys()].sort((a, b) => {
     if (a === SEM_CATEGORIA) return 1;
     if (b === SEM_CATEGORIA) return -1;
     return a.localeCompare(b, "pt-BR");
   });
-  return chaves.map((chave) => ({ categoria: chave, items: grupos.get(chave) }));
+
+  const cards = [
+    { nome: "todos", label: "Todos", count: pendingItems.length, bg: "var(--purple-soft)", text: "var(--purple)" },
+    ...categorias.map((c) => {
+      const cor = c === SEM_CATEGORIA ? { bg: "var(--neutral-bg)", text: "var(--text-dim)" } : corCategoria(c);
+      return { nome: c, label: c, count: contagem.get(c), bg: cor.bg, text: cor.text };
+    }),
+  ];
+
+  el.homeCategoryCards.innerHTML = cards.map((c) => `
+    <button class="cat-card ${filtroCategoriaAtiva === c.nome ? "cat-card-active" : ""}" data-home-cat="${escapeHtml(c.nome)}" style="background:${c.bg};color:${c.text};">
+      <span class="cat-card-count">${c.count}</span>
+      <span class="cat-card-label">${escapeHtml(c.label)}</span>
+    </button>
+  `).join("");
+
+  el.homeCategoryCards.querySelectorAll("[data-home-cat]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const nome = btn.dataset.homeCat;
+      filtroCategoriaAtiva = nome === "todos" ? null : nome;
+      showView("list");
+      renderList();
+    });
+  });
+}
+
+// ---------- Lista completa (linhas, inclui compartilhados) ----------
+
+function dotsHtml(itemId, nivelAtual, size, interativo) {
+  const cls = size === "lg" ? "dot dot-lg" : "dot";
+  return ["baixa", "normal", "alta"].map((nivel) => `
+    <button
+      class="${cls} dot-${nivel} ${nivelAtual === nivel ? "active" : ""}"
+      ${interativo ? `data-set-priority="${itemId}" data-nivel="${nivel}"` : "disabled"}
+      title="Importância: ${IMPORTANCIA_LABEL[nivel]}"
+      aria-label="Marcar importância ${IMPORTANCIA_LABEL[nivel]}"
+    ></button>
+  `).join("");
+}
+
+function renderItemRow(item) {
+  const done = item.status === "feito";
+  const isMine = item.owner_id === db.getUserId();
+  const checkAttr = isMine ? (done ? `data-uncheck="${item.id}"` : `data-check="${item.id}"`) : "disabled";
+  const cor = item.categoria ? corCategoria(item.categoria) : null;
+  const stripe = cor ? cor.text : "transparent";
+  const nivelAtual = item.importancia || "normal";
+
+  const sub = [];
+  if (item.data_sugerida) sub.push(`📅 ${formatDate(item.data_sugerida)}`);
+  if (!isMine) {
+    const nomeDono = profilesById[item.owner_id]?.nome || "alguém";
+    sub.push(`compartilhado por ${escapeHtml(nomeDono)}`);
+  }
+
+  return `
+    <div class="task-row" data-open-item="${item.id}" style="border-left-color:${stripe};">
+      <button class="item-check ${done ? "checked" : ""} ${!isMine ? "item-check-disabled" : ""}" ${checkAttr} aria-label="Marcar"></button>
+      <div class="task-row-main">
+        <div class="task-row-title ${done ? "done" : ""}">${escapeHtml(item.texto_original)}</div>
+        ${sub.length ? `<div class="task-row-sub">${sub.join(" · ")}</div>` : ""}
+      </div>
+      <div class="task-row-right">
+        ${item.categoria ? `<span class="row-category" style="color:${cor.text};">${escapeHtml(item.categoria)}</span>` : ""}
+        <div class="dots-row">${dotsHtml(item.id, nivelAtual, "sm", isMine)}</div>
+      </div>
+    </div>
+  `;
 }
 
 function renderList() {
-  const grupos = agruparPorCategoria(pendingItems);
+  const filtro = filtroCategoriaAtiva;
+  const pendentesFiltrados = filtro
+    ? pendingItems.filter((i) => (i.categoria || SEM_CATEGORIA) === filtro)
+    : pendingItems;
+  const doneFiltrados = filtro
+    ? doneItems.filter((i) => (i.categoria || SEM_CATEGORIA) === filtro)
+    : doneItems;
+
+  const filtroChip = filtro
+    ? `<div class="active-filter-chip">Categoria: <strong>${escapeHtml(filtro)}</strong> <button id="clearFilterBtn">✕</button></div>`
+    : "";
 
   el.pendingList.innerHTML =
-    `<div class="list-section-title">Pendentes (${pendingItems.length})</div>` +
-    `<div class="category-columns">` +
-    grupos.map((grupo) => {
-      const cor = grupo.categoria !== SEM_CATEGORIA ? corCategoria(grupo.categoria) : null;
-      const headingStyle = cor ? `color:${cor.text};` : "";
-      return `
-      <div class="category-group">
-        <div class="category-heading" style="${headingStyle}">${escapeHtml(grupo.categoria)}</div>
-        ${grupo.items.map((item) => renderItemCard(item, { withShare: true, withMeta: true })).join("")}
-      </div>
-    `;
-    }).join("") +
-    `</div>`;
+    filtroChip +
+    `<div class="list-section-title">Pendentes (${pendentesFiltrados.length})</div>` +
+    `<div class="task-list">${pendentesFiltrados.map(renderItemRow).join("")}</div>`;
 
-  el.doneList.innerHTML = doneItems.length
-    ? `<div class="list-section-title">Concluídos</div>` +
-      doneItems.map((item) => renderItemCard(item, { withShare: false, withMeta: false })).join("")
+  el.doneList.innerHTML = doneFiltrados.length
+    ? `<div class="list-section-title">Concluídos</div><div class="task-list">${doneFiltrados.map(renderItemRow).join("")}</div>`
     : "";
 
-  wireItemCardEvents(el.pendingList);
-  wireItemCardEvents(el.doneList);
-}
-
-function renderShared() {
-  if (sharedItems.length === 0) {
-    el.sharedList.innerHTML = `
-      <div class="empty-state" style="margin: 40px auto;">
-        <strong>Nada compartilhado com você ainda.</strong>
-      </div>
-    `;
-    return;
+  const clearBtn = document.getElementById("clearFilterBtn");
+  if (clearBtn) {
+    clearBtn.addEventListener("click", () => {
+      filtroCategoriaAtiva = null;
+      renderList();
+      renderHomeCards();
+    });
   }
 
-  el.sharedList.innerHTML =
-    `<div class="list-section-title">Compartilhados com você</div>` +
-    sharedItems.map((item) => {
-      const donoNome = profilesById[item.owner_id]?.nome || "alguém";
-      const done = item.status === "feito";
-      return `
-        <div class="item-card">
-          <div class="item-body">
-            <div class="item-text ${done ? "done" : ""}">${escapeHtml(item.texto_original)}</div>
-            <div class="item-meta">
-              <span>De ${escapeHtml(donoNome)} · ${formatDate(item.criado_em)}</span>
-              ${done ? '<span class="tag">concluído</span>' : ""}
-            </div>
-          </div>
-        </div>
-      `;
-    }).join("");
+  wireRowEvents(el.pendingList);
+  wireRowEvents(el.doneList);
 }
 
-function renderItemCard(item, opts) {
-  const withShare = opts && opts.withShare;
-  const withMeta = opts ? opts.withMeta !== false : true;
-  const done = item.status === "feito";
-  const checkAttr = done ? `data-uncheck="${item.id}"` : `data-check="${item.id}"`;
-  const meta = done
-    ? `Criado ${formatDate(item.criado_em)} · Concluído ${formatDate(item.concluido_em)}`
-    : `Criado ${formatDate(item.criado_em)}`;
+function wireRowEvents(container) {
+  container.querySelectorAll("[data-check]").forEach((btn) => {
+    btn.addEventListener("click", async (e) => {
+      e.stopPropagation();
+      await db.markDone(btn.dataset.check);
+      await refreshData();
+    });
+  });
 
-  const tags = [];
-  if (item.tipo) tags.push(`<span class="tag">${item.tipo}</span>`);
-  if (item.data_sugerida) tags.push(`<span class="tag">prazo: ${formatDate(item.data_sugerida)}</span>`);
-  if (item.notas_ia) tags.push(`<span class="tag">${escapeHtml(item.notas_ia)}</span>`);
+  container.querySelectorAll("[data-uncheck]").forEach((btn) => {
+    btn.addEventListener("click", async (e) => {
+      e.stopPropagation();
+      await db.markUndone(btn.dataset.uncheck);
+      await refreshData();
+    });
+  });
 
-  const importanciaAtual = item.importancia || "normal";
-  const corCat = item.categoria ? corCategoria(item.categoria) : null;
-  const categoriaStyle = corCat ? `background:${corCat.bg};border-color:${corCat.border};color:${corCat.text};` : "";
-  const impCor = { baixa: "var(--neutral-bg)", normal: "var(--info-bg)", alta: "var(--danger-bg)" };
-  const impBorda = { baixa: "var(--neutral-border)", normal: "var(--info-border)", alta: "var(--danger-border)" };
-  const impTexto = { baixa: "var(--text-dim)", normal: "var(--info)", alta: "var(--danger)" };
+  container.querySelectorAll("[data-set-priority]").forEach((btn) => {
+    btn.addEventListener("click", async (e) => {
+      e.stopPropagation();
+      await salvarImportancia(btn.dataset.setPriority, btn.dataset.nivel);
+    });
+  });
 
-  const temCompartilhamento = (item.compartilhado_com || []).length > 0;
-
-  const controlesRow = `
-    <div class="tags-row">
-      <button
-        class="imp-pill imp-active"
-        data-cycle-importancia="${item.id}"
-        style="background:${impCor[importanciaAtual]};border-color:${impBorda[importanciaAtual]};color:${impTexto[importanciaAtual]};"
-        title="Clique para mudar a importância"
-      >${IMPORTANCIA_LABEL[importanciaAtual]}</button>
-      ${withMeta ? `
-        <button class="category-edit-btn" data-category-edit="${item.id}" style="${categoriaStyle}">
-          ${item.categoria ? escapeHtml(item.categoria) : "+ categoria"}
-        </button>
-      ` : ""}
-      <button class="icon-text-btn" data-edit-item="${item.id}" title="Editar">✎ editar</button>
-      ${withShare && otherProfiles.length > 0 ? `
-        <button class="icon-text-btn ${temCompartilhamento ? "chip-active" : ""}" data-toggle-share="${item.id}" title="Compartilhar">
-          ⇄ ${temCompartilhamento ? (item.compartilhado_com || []).length : ""}
-        </button>
-      ` : ""}
-    </div>
-  `;
-
-  const sharePopover = withShare && otherProfiles.length > 0
-    ? `<div class="share-popover" id="share-popover-${item.id}" style="display:none;"></div>`
-    : "";
-
-  return `
-    <div class="item-card">
-      <button class="item-check ${done ? "checked" : ""}" ${checkAttr} aria-label="Marcar"></button>
-      <div class="item-body">
-        <div class="item-text ${done ? "done" : ""}">${escapeHtml(item.texto_original)}</div>
-        <div class="item-meta">
-          <span>${meta}</span>
-          ${tags.join("")}
-        </div>
-        ${controlesRow}
-        ${sharePopover}
-        <div class="edit-form" id="edit-item-${item.id}" style="display:none;"></div>
-      </div>
-    </div>
-  `;
+  container.querySelectorAll("[data-open-item]").forEach((row) => {
+    row.addEventListener("click", () => abrirDetalheItem(row.dataset.openItem));
+  });
 }
+
+async function salvarImportancia(itemId, nivel) {
+  const item = pendingItems.find((i) => i.id === itemId) || doneItems.find((i) => i.id === itemId);
+  if (!item || item.owner_id !== db.getUserId()) return;
+  item.importancia = nivel;
+  renderList();
+  if (itemModalId === itemId) renderModalBody(item);
+  try {
+    await db.updateImportancia(itemId, nivel);
+    pendingItems = ordenarPorImportancia(pendingItems);
+    renderNext();
+  } catch (err) {
+    console.error("Erro ao salvar importância:", err);
+  }
+}
+
+// ---------- Modal de detalhe do item ----------
 
 function categoriasConhecidas() {
   const todas = [...pendingItems, ...doneItems]
@@ -340,16 +364,127 @@ function categoriasConhecidas() {
   return [...new Set(todas)].sort((a, b) => a.localeCompare(b, "pt-BR"));
 }
 
-function abrirSeletorCategoria(itemId, anchorEl) {
-  document.querySelectorAll(".category-popover").forEach((p) => p.remove());
-
+function abrirDetalheItem(itemId) {
   const item = pendingItems.find((i) => i.id === itemId) || doneItems.find((i) => i.id === itemId);
   if (!item) return;
 
-  const conhecidas = categoriasConhecidas();
+  itemModalId = itemId;
+  renderModalBody(item);
+  el.modalBackdrop.style.display = "flex";
+}
 
-  const popover = document.createElement("div");
-  popover.className = "category-popover";
+function fecharModal() {
+  el.modalBackdrop.style.display = "none";
+  itemModalId = null;
+}
+
+el.modalClose.addEventListener("click", fecharModal);
+el.modalBackdrop.addEventListener("click", (e) => {
+  if (e.target === el.modalBackdrop) fecharModal();
+});
+
+function renderModalBody(item) {
+  const done = item.status === "feito";
+  const isMine = item.owner_id === db.getUserId();
+  const cor = item.categoria ? corCategoria(item.categoria) : null;
+  const categoriaStyle = cor ? `background:${cor.bg};border-color:${cor.border};color:${cor.text};` : "";
+  const nivelAtual = item.importancia || "normal";
+
+  const nomesCompartilhados = (item.compartilhado_com || [])
+    .map((id) => profilesById[id]?.nome)
+    .filter(Boolean);
+
+  el.modalBody.innerHTML = `
+    <div class="modal-title">${escapeHtml(item.texto_original)}</div>
+    <div class="modal-meta">
+      Criado em ${formatDate(item.criado_em)}
+      ${done ? `· Concluído em ${formatDate(item.concluido_em)}` : ""}
+      ${!isMine ? `· compartilhado por ${escapeHtml(profilesById[item.owner_id]?.nome || "alguém")}` : ""}
+    </div>
+
+    <div class="modal-section">
+      <div class="modal-label">Categoria</div>
+      ${isMine ? `
+        <button class="category-edit-btn" id="modalCategoryBtn" style="${categoriaStyle}">
+          ${item.categoria ? escapeHtml(item.categoria) : "+ categoria"}
+        </button>
+        <div class="category-popover" id="modalCategoryPopover" style="display:none;"></div>
+      ` : `<span class="pill" style="${categoriaStyle}">${item.categoria ? escapeHtml(item.categoria) : "Sem categoria"}</span>`}
+    </div>
+
+    <div class="modal-section">
+      <div class="modal-label">Importância</div>
+      <div class="dots-row">${dotsHtml(item.id, nivelAtual, "lg", isMine)}</div>
+    </div>
+
+    ${isMine && otherProfiles.length > 0 ? `
+      <div class="modal-section">
+        <div class="modal-label">Compartilhado com</div>
+        <div class="share-row" id="modalShareRow">
+          ${otherProfiles.map((p) => {
+            const active = (item.compartilhado_com || []).includes(p.id);
+            return `<button class="chip ${active ? "chip-active" : ""}" data-modal-share="${p.id}">${escapeHtml(p.nome)}</button>`;
+          }).join("")}
+        </div>
+      </div>
+    ` : ""}
+
+    ${isMine ? `
+      <div class="modal-section">
+        <button class="category-save-btn" id="modalEditBtn">Editar</button>
+      </div>
+      <div class="edit-form" id="modalEditForm" style="display:none;"></div>
+    ` : ""}
+  `;
+
+  if (!isMine) return;
+
+  document.getElementById("modalCategoryBtn").addEventListener("click", () => {
+    toggleModalCategoryPopover(item);
+  });
+
+  el.modalBody.querySelectorAll("[data-set-priority]").forEach((btn) => {
+    btn.addEventListener("click", () => salvarImportancia(item.id, btn.dataset.nivel));
+  });
+
+  const shareRow = document.getElementById("modalShareRow");
+  if (shareRow) {
+    shareRow.querySelectorAll("[data-modal-share]").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        const personId = btn.dataset.modalShare;
+        const atual = item.compartilhado_com || [];
+        const novo = atual.includes(personId)
+          ? atual.filter((id) => id !== personId)
+          : [...atual, personId];
+
+        btn.classList.toggle("chip-active");
+        try {
+          await db.updateSharing(item.id, novo);
+          item.compartilhado_com = novo;
+        } catch (err) {
+          console.error("Erro ao compartilhar:", err);
+          btn.classList.toggle("chip-active");
+        }
+      });
+    });
+  }
+
+  document.getElementById("modalEditBtn").addEventListener("click", () => {
+    abrirEdicaoNoModal(item);
+  });
+}
+
+function toggleModalCategoryPopover(item) {
+  const popover = document.getElementById("modalCategoryPopover");
+  if (!popover) return;
+
+  if (popover.style.display === "flex") {
+    popover.style.display = "none";
+    return;
+  }
+
+  const conhecidas = categoriasConhecidas();
+  popover.style.display = "flex";
   popover.innerHTML = `
     ${conhecidas.map((c) => {
       const cor = corCategoria(c);
@@ -361,35 +496,25 @@ function abrirSeletorCategoria(itemId, anchorEl) {
     </div>
   `;
 
-  anchorEl.parentElement.appendChild(popover);
-
   popover.querySelectorAll("[data-set-category]").forEach((btn) => {
     btn.addEventListener("click", async () => {
-      await salvarCategoria(itemId, btn.dataset.setCategory);
-      popover.remove();
+      await salvarCategoria(item.id, btn.dataset.setCategory);
+      popover.style.display = "none";
+      renderModalBody(item);
     });
   });
 
   const input = popover.querySelector(".category-new-input");
   const salvar = async () => {
     const valor = input.value.trim();
-    await salvarCategoria(itemId, valor || null);
-    popover.remove();
+    await salvarCategoria(item.id, valor || null);
+    popover.style.display = "none";
+    renderModalBody(item);
   };
   popover.querySelector(".category-save-btn").addEventListener("click", salvar);
   input.addEventListener("keydown", (e) => {
     if (e.key === "Enter") { e.preventDefault(); salvar(); }
   });
-
-  // fecha ao clicar fora
-  setTimeout(() => {
-    document.addEventListener("click", function onClickOutside(e) {
-      if (!popover.contains(e.target) && e.target !== anchorEl) {
-        popover.remove();
-        document.removeEventListener("click", onClickOutside);
-      }
-    });
-  }, 0);
 }
 
 async function salvarCategoria(itemId, categoria) {
@@ -398,13 +523,14 @@ async function salvarCategoria(itemId, categoria) {
   try {
     await db.updateCategoria(itemId, categoria);
     renderList();
+    renderHomeCards();
   } catch (err) {
     console.error("Erro ao salvar categoria:", err);
   }
 }
 
-function abrirEdicaoItem(itemId) {
-  const container = document.getElementById(`edit-item-${itemId}`);
+function abrirEdicaoNoModal(item) {
+  const container = document.getElementById("modalEditForm");
   if (!container) return;
 
   if (container.style.display === "block") {
@@ -412,164 +538,43 @@ function abrirEdicaoItem(itemId) {
     return;
   }
 
-  const item = pendingItems.find((i) => i.id === itemId) || doneItems.find((i) => i.id === itemId);
-  if (!item) return;
-
   const dataValue = item.data_sugerida ? new Date(item.data_sugerida).toISOString().slice(0, 10) : "";
 
   container.style.display = "block";
   container.innerHTML = `
-    <textarea class="category-new-input edit-textarea" rows="2" style="width:100%;">${escapeHtml(item.texto_original)}</textarea>
+    <textarea class="category-new-input" rows="3" style="width:100%;">${escapeHtml(item.texto_original)}</textarea>
     <input type="date" class="category-new-input" style="margin-top:8px;" value="${dataValue}">
     <div style="display:flex;gap:8px;margin-top:8px;">
-      <button class="category-save-btn" data-save-item="${itemId}">Salvar</button>
-      <button class="category-edit-btn" data-cancel-item="${itemId}">Cancelar</button>
+      <button class="category-save-btn" id="modalSaveEdit">Salvar</button>
+      <button class="category-edit-btn" id="modalCancelEdit">Cancelar</button>
     </div>
   `;
 
-  container.querySelector("[data-save-item]").addEventListener("click", async () => {
+  document.getElementById("modalSaveEdit").addEventListener("click", async () => {
     const novoTexto = container.querySelector("textarea").value.trim();
     const novaData = container.querySelector("input[type=date]").value;
     if (!novoTexto) return;
 
     try {
-      await db.updateItemContent(itemId, {
+      await db.updateItemContent(item.id, {
         texto_original: novoTexto,
         data_sugerida: novaData || null,
       });
-      container.style.display = "none";
+      fecharModal();
       await refreshData();
     } catch (err) {
       console.error("Erro ao salvar edição do item:", err);
     }
   });
 
-  container.querySelector("[data-cancel-item]").addEventListener("click", () => {
+  document.getElementById("modalCancelEdit").addEventListener("click", () => {
     container.style.display = "none";
   });
-}
-
-function wireItemCardEvents(container) {
-  container.querySelectorAll("[data-check]").forEach((btn) => {
-    btn.addEventListener("click", async () => {
-      await db.markDone(btn.dataset.check);
-      await refreshData();
-    });
-  });
-
-  container.querySelectorAll("[data-uncheck]").forEach((btn) => {
-    btn.addEventListener("click", async () => {
-      await db.markUndone(btn.dataset.uncheck);
-      await refreshData();
-    });
-  });
-
-  container.querySelectorAll("[data-cycle-importancia]").forEach((btn) => {
-    btn.addEventListener("click", async () => {
-      const itemId = btn.dataset.cycleImportancia;
-      const item = pendingItems.find((i) => i.id === itemId);
-      if (!item) return;
-      const atual = item.importancia || "normal";
-      const proximo = PROXIMA_IMPORTANCIA[atual];
-      item.importancia = proximo;
-      renderList();
-      try {
-        await db.updateImportancia(itemId, proximo);
-        pendingItems = ordenarPorImportancia(pendingItems);
-        renderNext();
-      } catch (err) {
-        console.error("Erro ao salvar importância:", err);
-      }
-    });
-  });
-
-  container.querySelectorAll("[data-category-edit]").forEach((btn) => {
-    btn.addEventListener("click", (e) => {
-      e.stopPropagation();
-      abrirSeletorCategoria(btn.dataset.categoryEdit, btn);
-    });
-  });
-
-  container.querySelectorAll("[data-edit-item]").forEach((btn) => {
-    btn.addEventListener("click", (e) => {
-      e.stopPropagation();
-      abrirEdicaoItem(btn.dataset.editItem);
-    });
-  });
-
-  container.querySelectorAll("[data-toggle-share]").forEach((btn) => {
-    btn.addEventListener("click", (e) => {
-      e.stopPropagation();
-      abrirPopoverCompartilhar(btn.dataset.toggleShare);
-    });
-  });
-}
-
-function abrirPopoverCompartilhar(itemId) {
-  const popover = document.getElementById(`share-popover-${itemId}`);
-  if (!popover) return;
-
-  if (popover.style.display === "block") {
-    popover.style.display = "none";
-    return;
-  }
-
-  const item = pendingItems.find((i) => i.id === itemId) || doneItems.find((i) => i.id === itemId);
-  if (!item) return;
-
-  popover.style.display = "block";
-  popover.innerHTML = otherProfiles.map((p) => {
-    const active = (item.compartilhado_com || []).includes(p.id);
-    return `<button class="chip ${active ? "chip-active" : ""}" data-share="${item.id}" data-person="${p.id}">${escapeHtml(p.nome)}</button>`;
-  }).join("");
-
-  popover.querySelectorAll("[data-share]").forEach((btn) => {
-    btn.addEventListener("click", async () => {
-      const personId = btn.dataset.person;
-      const atual = item.compartilhado_com || [];
-      const novo = atual.includes(personId)
-        ? atual.filter((id) => id !== personId)
-        : [...atual, personId];
-
-      btn.classList.toggle("chip-active");
-      try {
-        await db.updateSharing(itemId, novo);
-        item.compartilhado_com = novo;
-
-        // Atualiza só o botão-gatilho (contagem), sem recriar o popover
-        const trigger = document.querySelector(`[data-toggle-share="${itemId}"]`);
-        if (trigger) {
-          trigger.classList.toggle("chip-active", novo.length > 0);
-          trigger.innerHTML = `⇄ ${novo.length > 0 ? novo.length : ""}`;
-        }
-      } catch (err) {
-        console.error("Erro ao compartilhar:", err);
-        btn.classList.toggle("chip-active");
-      }
-    });
-  });
-
-  setTimeout(() => {
-    document.addEventListener("click", function onClickOutside(e) {
-      if (!popover.contains(e.target)) {
-        popover.style.display = "none";
-        document.removeEventListener("click", onClickOutside);
-      }
-    });
-  }, 0);
-}
-
-function escapeHtml(str) {
-  const div = document.createElement("div");
-  div.textContent = str;
-  return div.innerHTML;
 }
 
 // ---------- Ordenação ----------
 
 function ordenarPorImportancia(items) {
-  // Sort estável: mantém a ordem de prioridade/idade já vinda do banco,
-  // só reordena por peso de importância por cima.
   return [...items].sort((a, b) => {
     const pa = IMPORTANCIA_PESO[a.importancia || "normal"];
     const pb = IMPORTANCIA_PESO[b.importancia || "normal"];
@@ -580,20 +585,28 @@ function ordenarPorImportancia(items) {
 // ---------- Sincronização de dados ----------
 
 async function refreshData() {
-  const [pending, done] = await Promise.all([db.listPending(), db.listDone()]);
-  pendingItems = ordenarPorImportancia(pending);
-  doneItems = done;
-  renderNext();
-  renderList();
-  notifications.updateBadge(pendingItems.length);
-}
+  const [pending, done, compartilhados] = await Promise.all([
+    db.listPending(),
+    db.listDone(),
+    db.listSharedWithMe(),
+  ]);
 
-async function refreshShared() {
-  sharedItems = await db.listSharedWithMe();
-  const ownerIds = [...new Set(sharedItems.map((i) => i.owner_id))];
-  const owners = await db.getProfilesByIds(ownerIds);
-  owners.forEach((p) => (profilesById[p.id] = p));
-  renderShared();
+  const ownerIds = [...new Set(compartilhados.map((i) => i.owner_id))];
+  if (ownerIds.length > 0) {
+    const owners = await db.getProfilesByIds(ownerIds);
+    owners.forEach((p) => (profilesById[p.id] = p));
+  }
+
+  const compPendentes = compartilhados.filter((i) => i.status === "pendente");
+  const compFeitos = compartilhados.filter((i) => i.status === "feito");
+
+  pendingItems = ordenarPorImportancia([...pending, ...compPendentes]);
+  doneItems = [...done, ...compFeitos];
+
+  renderNext();
+  renderHomeCards();
+  renderList();
+  notifications.updateBadge(pending.length);
 }
 
 // ---------- Boot do app (chamado só depois do login) ----------
@@ -612,10 +625,7 @@ async function startApp() {
   calendario.init();
 
   await refreshData();
-  db.onChange(() => {
-    refreshData();
-    if (el.sharedView.classList.contains("active")) refreshShared();
-  });
+  db.onChange(() => refreshData());
 
   // Se a permissão já tinha sido concedida numa visita anterior,
   // garante que a inscrição de push ainda está salva no banco.

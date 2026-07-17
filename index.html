@@ -76,22 +76,18 @@
   </section>
 
   <main>
-    <!-- Tela: próximo item -->
+    <!-- Tela: Home -->
     <div class="next-stage" id="nextStage">
+      <div class="category-cards" id="homeCategoryCards"></div>
       <div id="nextContent">
         <!-- preenchido via JS -->
       </div>
     </div>
 
-    <!-- Tela: lista completa -->
+    <!-- Tela: lista completa (inclui compartilhados comigo) -->
     <div class="list-view" id="listView">
       <div id="pendingList"></div>
       <div id="doneList"></div>
-    </div>
-
-    <!-- Tela: compartilhados comigo -->
-    <div class="list-view" id="sharedView">
-      <div id="sharedList"></div>
     </div>
 
     <!-- Tela: registro de postagens -->
@@ -129,15 +125,11 @@
   <nav class="tabbar">
     <button id="navNext" class="active">
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
-      Agora
+      Home
     </button>
     <button id="navList">
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h10"/></svg>
       Tudo
-    </button>
-    <button id="navShared">
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.6" y1="13.5" x2="15.4" y2="17.5"/><line x1="15.4" y1="6.5" x2="8.6" y2="10.5"/></svg>
-      Compart.
     </button>
     <button id="navPosts">
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="4"/><path d="M8 12h8M8 16h5M8 8h3"/></svg>
@@ -149,6 +141,13 @@
     </button>
   </nav>
 
+</div>
+
+<div class="modal-backdrop" id="itemModalBackdrop" style="display:none;">
+  <div class="modal-card">
+    <button class="modal-close" id="itemModalClose" aria-label="Fechar">✕</button>
+    <div id="itemModalBody"></div>
+  </div>
 </div>
 
 <script src="https://unpkg.com/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
