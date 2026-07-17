@@ -47,7 +47,6 @@ const el = {
   postsView: document.getElementById("postsView"),
   navCalendar: document.getElementById("navCalendar"),
   calendarView: document.getElementById("calendarView"),
-  captureSection: document.querySelector(".capture"),
   logoutBtn: document.getElementById("logoutBtn"),
   modalBackdrop: document.getElementById("itemModalBackdrop"),
   modalBody: document.getElementById("itemModalBody"),
@@ -75,7 +74,6 @@ function showView(view) {
   el.listView.classList.toggle("active", view === "list");
   el.postsView.classList.toggle("active", view === "posts");
   el.calendarView.classList.toggle("active", view === "calendar");
-  el.captureSection.style.display = (view === "posts" || view === "calendar") ? "none" : "block";
 
   el.navNext.classList.toggle("active", view === "next");
   el.navList.classList.toggle("active", view === "list");

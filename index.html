@@ -53,27 +53,10 @@
 <div id="app" style="display:none;">
 
   <header class="topbar">
-    <div class="brand">
-      <span class="brand-dot" aria-hidden="true"></span>
-      Fluxo
-    </div>
-    <div class="view-toggle">
-      <button class="icon-btn" id="logoutBtn" title="Sair" aria-label="Sair da conta">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/></svg>
-      </button>
-    </div>
+    <button class="icon-btn" id="logoutBtn" title="Sair" aria-label="Sair da conta" style="margin-left:auto;">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/></svg>
+    </button>
   </header>
-
-  <section class="capture">
-    <div class="capture-box">
-      <label for="captureInput" class="sr-only">Anotar algo</label>
-      <textarea id="captureInput" rows="1" placeholder="O que passou pela cabeça?" autocomplete="off"></textarea>
-      <button class="capture-send" id="captureSend" disabled aria-label="Salvar">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 5l7 7-7 7"/></svg>
-      </button>
-    </div>
-    <div class="capture-hint">Sem categoria, sem prazo, sem decisão agora. Só escreve.</div>
-  </section>
 
   <main>
     <!-- Tela: Home -->
@@ -81,6 +64,17 @@
       <div id="homeHero"></div>
       <div class="section-label">Categorias</div>
       <div class="category-cards" id="homeCategoryCards"></div>
+
+      <section class="capture">
+        <div class="capture-box">
+          <label for="captureInput" class="sr-only">Anotar algo</label>
+          <textarea id="captureInput" rows="1" placeholder="O que passou pela cabeça?" autocomplete="off"></textarea>
+          <button class="capture-send" id="captureSend" disabled aria-label="Salvar">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 5l7 7-7 7"/></svg>
+          </button>
+        </div>
+        <div class="capture-hint">Sem categoria, sem prazo, sem decisão agora. Só escreve.</div>
+      </section>
     </div>
 
     <!-- Tela: lista completa (inclui compartilhados comigo) -->

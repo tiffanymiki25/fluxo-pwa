@@ -64,8 +64,8 @@ html, body {
 .topbar {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  padding: var(--space-3) var(--space-2) var(--space-2);
+  justify-content: flex-end;
+  padding: 12px var(--space-2) 4px;
 }
 
 .brand {
@@ -120,7 +120,7 @@ html, body {
 /* ---------- Captura ---------- */
 
 .capture {
-  padding: 0 var(--space-2) var(--space-3);
+  padding: var(--space-3) 0 0;
 }
 
 .capture-box {
@@ -200,12 +200,7 @@ main {
 /* ---------- Cartão "próximo item" ---------- */
 
 .next-stage {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  min-height: 50vh;
-  text-align: center;
+  display: block;
 }
 
 .next-eyebrow {
