@@ -28,6 +28,7 @@ let pendingItems = [];
 let doneItems = [];
 let otherProfiles = []; // [{id, nome}] — Amanda e Marcelo, do ponto de vista de quem logou
 let profilesById = {};
+let meuNome = "";
 let itemModalId = null; // item atualmente aberto no modal de detalhe
 let filtroCategoriaAtiva = null; // categoria selecionada nos cards da Home, ou null = tudo
 
@@ -35,6 +36,7 @@ const el = {
   input: document.getElementById("captureInput"),
   send: document.getElementById("captureSend"),
   nextStage: document.getElementById("nextStage"),
+  homeHero: document.getElementById("homeHero"),
   homeCategoryCards: document.getElementById("homeCategoryCards"),
   listView: document.getElementById("listView"),
   pendingList: document.getElementById("pendingList"),
@@ -160,23 +162,45 @@ function renderHomeCards() {
     return a.localeCompare(b, "pt-BR");
   });
 
-  const cards = [
-    { nome: "todos", label: "Todos", count: pendingItems.length, bg: "var(--purple-soft)", text: "var(--purple)" },
-    ...categorias.map((c) => {
-      const cor = c === SEM_CATEGORIA ? { bg: "var(--neutral-bg)", text: "var(--text-dim)" } : corCategoria(c);
-      return { nome: c, label: c, count: contagem.get(c), bg: cor.bg, text: cor.text };
-    }),
-  ];
+  const iconTag = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41 13.42 20.58a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><circle cx="7" cy="7" r="1"/></svg>`;
 
-  el.homeCategoryCards.innerHTML = cards.map((c) => `
-    <button class="cat-card ${filtroCategoriaAtiva === c.nome ? "cat-card-active" : ""}" data-home-cat="${escapeHtml(c.nome)}" style="background:${c.bg};color:${c.text};">
-      <span class="cat-card-icon">${c.nome === "todos" ? "✓" : "#"}</span>
-      <span class="cat-card-count">${c.count}</span>
-      <span class="cat-card-label">${escapeHtml(c.label)}</span>
+  const saudacao = meuNome ? `Olá, ${escapeHtml(meuNome.split(" ")[0])}` : "Olá";
+  const hoje = new Date().toLocaleDateString("pt-BR", { weekday: "long", day: "2-digit", month: "long" });
+
+  el.homeHero.innerHTML = `
+    <button class="home-hero ${filtroCategoriaAtiva === null ? "cat-card-active" : ""}" data-home-cat="todos">
+      <img src="icons/icon-512.png" alt="Octa44 Hub" class="home-hero-logo">
+      <div class="home-hero-text">
+        <div class="home-hero-greeting">${saudacao}</div>
+        <div class="home-hero-date">${escapeHtml(hoje)}</div>
+      </div>
+      <div class="home-hero-stat">
+        <span class="home-hero-count">${pendingItems.length}</span>
+        <span class="home-hero-label">pendentes</span>
+      </div>
     </button>
-  `).join("");
+  `;
 
-  el.homeCategoryCards.querySelectorAll("[data-home-cat]").forEach((btn) => {
+  const cardsHtml = categorias.map((c) => {
+    const cor = c === SEM_CATEGORIA ? { bg: "var(--neutral-bg)", text: "var(--text-dim)" } : corCategoria(c);
+    const ativo = filtroCategoriaAtiva === c;
+    return `
+      <button class="cat-card ${ativo ? "cat-card-active" : ""}" data-home-cat="${escapeHtml(c)}" style="background:${cor.bg};">
+        <span class="cat-card-icon" style="color:${cor.text};">${iconTag}</span>
+        <span class="cat-card-count" style="color:${cor.text};">${contagem.get(c)}</span>
+        <span class="cat-card-label">${escapeHtml(c)}</span>
+      </button>
+    `;
+  }).join("");
+
+  el.homeCategoryCards.innerHTML = cardsHtml || `
+    <div class="empty-state" style="grid-column: 1 / -1; margin: 20px auto;">
+      <strong>Nenhuma categoria ainda.</strong>
+      Categorize um item pra ele aparecer aqui.
+    </div>
+  `;
+
+  document.querySelectorAll("[data-home-cat]").forEach((btn) => {
     btn.addEventListener("click", () => {
       const nome = btn.dataset.homeCat;
       filtroCategoriaAtiva = nome === "todos" ? null : nome;
@@ -572,6 +596,13 @@ async function startApp() {
 
   otherProfiles = await db.listOtherProfiles();
   otherProfiles.forEach((p) => (profilesById[p.id] = p));
+
+  try {
+    const meuPerfil = await db.getMyProfile();
+    meuNome = meuPerfil?.nome || "";
+  } catch (err) {
+    console.error("Erro ao buscar perfil:", err);
+  }
 
   postagens.init();
   calendario.init();
