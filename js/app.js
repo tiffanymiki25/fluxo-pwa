@@ -4,6 +4,7 @@
 
 const IMPORTANCIA_PESO = { alta: 2, normal: 1, baixa: 0 };
 const IMPORTANCIA_LABEL = { alta: "Alta", normal: "Normal", baixa: "Baixa" };
+const PROXIMA_IMPORTANCIA = { baixa: "normal", normal: "alta", alta: "baixa" };
 const SEM_CATEGORIA = "Sem categoria";
 
 // Paleta rotativa pro estilo "pill colorida" do Eventos Haru — cada
@@ -283,34 +284,36 @@ function renderItemCard(item, opts) {
   const importanciaAtual = item.importancia || "normal";
   const corCat = item.categoria ? corCategoria(item.categoria) : null;
   const categoriaStyle = corCat ? `background:${corCat.bg};border-color:${corCat.border};color:${corCat.text};` : "";
+  const impCor = { baixa: "var(--neutral-bg)", normal: "var(--info-bg)", alta: "var(--danger-bg)" };
+  const impBorda = { baixa: "var(--neutral-border)", normal: "var(--info-border)", alta: "var(--danger-border)" };
+  const impTexto = { baixa: "var(--text-dim)", normal: "var(--info)", alta: "var(--danger)" };
 
-  const importanciaRow = withMeta ? `
+  const temCompartilhamento = (item.compartilhado_com || []).length > 0;
+
+  const controlesRow = `
     <div class="tags-row">
-      ${["baixa", "normal", "alta"].map((nivel) => `
-        <button
-          class="imp-pill imp-${nivel} ${importanciaAtual === nivel ? "imp-active" : ""}"
-          data-importancia="${item.id}"
-          data-nivel="${nivel}"
-        >${IMPORTANCIA_LABEL[nivel]}</button>
-      `).join("")}
-      <button class="category-edit-btn" data-category-edit="${item.id}" style="${categoriaStyle}">
-        ${item.categoria ? escapeHtml(item.categoria) : "+ categoria"}
-      </button>
-      <button class="category-edit-btn" data-edit-item="${item.id}">editar</button>
-    </div>
-  ` : `
-    <div class="tags-row">
-      <button class="category-edit-btn" data-edit-item="${item.id}">editar</button>
+      <button
+        class="imp-pill imp-active"
+        data-cycle-importancia="${item.id}"
+        style="background:${impCor[importanciaAtual]};border-color:${impBorda[importanciaAtual]};color:${impTexto[importanciaAtual]};"
+        title="Clique para mudar a importância"
+      >${IMPORTANCIA_LABEL[importanciaAtual]}</button>
+      ${withMeta ? `
+        <button class="category-edit-btn" data-category-edit="${item.id}" style="${categoriaStyle}">
+          ${item.categoria ? escapeHtml(item.categoria) : "+ categoria"}
+        </button>
+      ` : ""}
+      <button class="icon-text-btn" data-edit-item="${item.id}" title="Editar">✎ editar</button>
+      ${withShare && otherProfiles.length > 0 ? `
+        <button class="icon-text-btn ${temCompartilhamento ? "chip-active" : ""}" data-toggle-share="${item.id}" title="Compartilhar">
+          ⇄ ${temCompartilhamento ? (item.compartilhado_com || []).length : ""}
+        </button>
+      ` : ""}
     </div>
   `;
 
-  const shareChips = withShare && otherProfiles.length > 0
-    ? `<div class="share-row">` +
-        otherProfiles.map((p) => {
-          const active = (item.compartilhado_com || []).includes(p.id);
-          return `<button class="chip ${active ? "chip-active" : ""}" data-share="${item.id}" data-person="${p.id}">${escapeHtml(p.nome)}</button>`;
-        }).join("") +
-      `</div>`
+  const sharePopover = withShare && otherProfiles.length > 0
+    ? `<div class="share-popover" id="share-popover-${item.id}" style="display:none;"></div>`
     : "";
 
   return `
@@ -322,8 +325,8 @@ function renderItemCard(item, opts) {
           <span>${meta}</span>
           ${tags.join("")}
         </div>
-        ${importanciaRow}
-        ${shareChips}
+        ${controlesRow}
+        ${sharePopover}
         <div class="edit-form" id="edit-item-${item.id}" style="display:none;"></div>
       </div>
     </div>
@@ -461,16 +464,17 @@ function wireItemCardEvents(container) {
     });
   });
 
-  container.querySelectorAll("[data-importancia]").forEach((btn) => {
+  container.querySelectorAll("[data-cycle-importancia]").forEach((btn) => {
     btn.addEventListener("click", async () => {
-      const itemId = btn.dataset.importancia;
-      const nivel = btn.dataset.nivel;
+      const itemId = btn.dataset.cycleImportancia;
       const item = pendingItems.find((i) => i.id === itemId);
       if (!item) return;
-      item.importancia = nivel;
+      const atual = item.importancia || "normal";
+      const proximo = PROXIMA_IMPORTANCIA[atual];
+      item.importancia = proximo;
       renderList();
       try {
-        await db.updateImportancia(itemId, nivel);
+        await db.updateImportancia(itemId, proximo);
         pendingItems = ordenarPorImportancia(pendingItems);
         renderNext();
       } catch (err) {
@@ -493,13 +497,35 @@ function wireItemCardEvents(container) {
     });
   });
 
-  container.querySelectorAll("[data-share]").forEach((btn) => {
-    btn.addEventListener("click", async () => {
-      const itemId = btn.dataset.share;
-      const personId = btn.dataset.person;
-      const item = pendingItems.find((i) => i.id === itemId) || doneItems.find((i) => i.id === itemId);
-      if (!item) return;
+  container.querySelectorAll("[data-toggle-share]").forEach((btn) => {
+    btn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      abrirPopoverCompartilhar(btn.dataset.toggleShare);
+    });
+  });
+}
 
+function abrirPopoverCompartilhar(itemId) {
+  const popover = document.getElementById(`share-popover-${itemId}`);
+  if (!popover) return;
+
+  if (popover.style.display === "block") {
+    popover.style.display = "none";
+    return;
+  }
+
+  const item = pendingItems.find((i) => i.id === itemId) || doneItems.find((i) => i.id === itemId);
+  if (!item) return;
+
+  popover.style.display = "block";
+  popover.innerHTML = otherProfiles.map((p) => {
+    const active = (item.compartilhado_com || []).includes(p.id);
+    return `<button class="chip ${active ? "chip-active" : ""}" data-share="${item.id}" data-person="${p.id}">${escapeHtml(p.nome)}</button>`;
+  }).join("");
+
+  popover.querySelectorAll("[data-share]").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      const personId = btn.dataset.person;
       const atual = item.compartilhado_com || [];
       const novo = atual.includes(personId)
         ? atual.filter((id) => id !== personId)
@@ -509,12 +535,28 @@ function wireItemCardEvents(container) {
       try {
         await db.updateSharing(itemId, novo);
         item.compartilhado_com = novo;
+
+        // Atualiza só o botão-gatilho (contagem), sem recriar o popover
+        const trigger = document.querySelector(`[data-toggle-share="${itemId}"]`);
+        if (trigger) {
+          trigger.classList.toggle("chip-active", novo.length > 0);
+          trigger.innerHTML = `⇄ ${novo.length > 0 ? novo.length : ""}`;
+        }
       } catch (err) {
         console.error("Erro ao compartilhar:", err);
         btn.classList.toggle("chip-active");
       }
     });
   });
+
+  setTimeout(() => {
+    document.addEventListener("click", function onClickOutside(e) {
+      if (!popover.contains(e.target)) {
+        popover.style.display = "none";
+        document.removeEventListener("click", onClickOutside);
+      }
+    });
+  }, 0);
 }
 
 function escapeHtml(str) {
