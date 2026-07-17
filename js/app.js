@@ -34,7 +34,6 @@ let filtroCategoriaAtiva = null; // categoria selecionada nos cards da Home, ou 
 const el = {
   input: document.getElementById("captureInput"),
   send: document.getElementById("captureSend"),
-  nextContent: document.getElementById("nextContent"),
   nextStage: document.getElementById("nextStage"),
   homeCategoryCards: document.getElementById("homeCategoryCards"),
   listView: document.getElementById("listView"),
@@ -146,53 +145,7 @@ async function submitCapture() {
   }
 }
 
-// ---------- Home: próximo item + cards de categoria ----------
-
-function renderNext() {
-  const item = pendingItems[0];
-
-  if (!item) {
-    el.nextContent.innerHTML = `
-      <div class="empty-state">
-        <strong>Nada pendente agora.</strong>
-        Escreva o que passar pela cabeça — vai aparecer aqui.
-      </div>
-    `;
-    return;
-  }
-
-  const tags = [];
-  if (item.categoria) {
-    const cor = corCategoria(item.categoria);
-    tags.push(`<span class="pill" style="background:${cor.bg};border-color:${cor.border};color:${cor.text};">${escapeHtml(item.categoria)}</span>`);
-  }
-  if (item.importancia === "alta") {
-    tags.push(`<span class="pill" style="background:#FEF2F2;border-color:#FECACA;color:#DC2626;">Alta</span>`);
-  }
-
-  el.nextContent.innerHTML = `
-    <div class="next-eyebrow">Próximo</div>
-    <div class="next-card">
-      <div class="next-card-text">${escapeHtml(item.texto_original)}</div>
-      <div class="next-card-meta">Criado em ${formatDate(item.criado_em)} ${tags.join(" ")}</div>
-      <div class="next-actions">
-        <button id="btnPostpone">Depois</button>
-        <button id="btnDone" class="btn-done">Feito</button>
-      </div>
-    </div>
-  `;
-
-  document.getElementById("btnDone").addEventListener("click", async () => {
-    await db.markDone(item.id);
-    await refreshData();
-  });
-
-  document.getElementById("btnPostpone").addEventListener("click", async () => {
-    await db.postpone(item.id, item.vezes_adiado);
-    pendingItems.push(pendingItems.shift());
-    renderNext();
-  });
-}
+// ---------- Home: cards de categoria ----------
 
 function renderHomeCards() {
   const contagem = new Map();
@@ -217,6 +170,7 @@ function renderHomeCards() {
 
   el.homeCategoryCards.innerHTML = cards.map((c) => `
     <button class="cat-card ${filtroCategoriaAtiva === c.nome ? "cat-card-active" : ""}" data-home-cat="${escapeHtml(c.nome)}" style="background:${c.bg};color:${c.text};">
+      <span class="cat-card-icon">${c.nome === "todos" ? "✓" : "#"}</span>
       <span class="cat-card-count">${c.count}</span>
       <span class="cat-card-label">${escapeHtml(c.label)}</span>
     </button>
@@ -349,7 +303,6 @@ async function salvarImportancia(itemId, nivel) {
   try {
     await db.updateImportancia(itemId, nivel);
     pendingItems = ordenarPorImportancia(pendingItems);
-    renderNext();
   } catch (err) {
     console.error("Erro ao salvar importância:", err);
   }
@@ -603,7 +556,6 @@ async function refreshData() {
   pendingItems = ordenarPorImportancia([...pending, ...compPendentes]);
   doneItems = [...done, ...compFeitos];
 
-  renderNext();
   renderHomeCards();
   renderList();
   notifications.updateBadge(pending.length);
@@ -642,7 +594,7 @@ async function startApp() {
 auth.init(() => {
   startApp().catch((err) => {
     console.error("Erro ao iniciar o app:", err);
-    el.nextContent.innerHTML = `
+    el.homeCategoryCards.innerHTML = `
       <div class="empty-state">
         <strong>Não consegui conectar.</strong>
         Confira se a URL e a chave do Supabase estão certas em js/config.js.
